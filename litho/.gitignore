@@ -1,3 +1,5 @@
 scripts/*.jpg
 scripts/*png
 __pycache__
+scripts/camera/flir/*
+venv/
