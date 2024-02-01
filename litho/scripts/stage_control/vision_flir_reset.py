@@ -1,5 +1,5 @@
 # %%
-import PySpin
+from pyspin import PySpin
 system = PySpin.System.GetInstance()
 cam_list = system.GetCameras()
 num_cameras = cam_list.GetSize()

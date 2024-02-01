@@ -6,8 +6,8 @@ from litho_img_lib import *
 from litho_gui_lib import *
 
 from config import camera as camera_hw
-from stage_control.stage_controller import StageControllerLowLevel
-from stage_control.stage_controller import socket as stage_socket
+#from stage_control.stage_controller import StageControllerLowLevel
+#from stage_control.stage_controller import socket as stage_socket
 import cv2
 import threading
 import time
@@ -970,12 +970,12 @@ GUI.add_widget("clear_button", clear_button)
 #endregion
 
 #region: Stage Control Setup
-stage_ll = StageControllerLowLevel()
+#stage_ll = StageControllerLowLevel()
 
 def update_func_x():
   print('moving x', flush=True)
   dx = stage.step_size[0]
-  stage_socket.send(msgpack.packb([time.time_ns(), [dx]]))
+  #stage_socket.send(msgpack.packb([time.time_ns(), [dx]]))
 
 previous_xyz: tuple[int,int,int] = stage.xyz()
 def move_stage():
@@ -984,7 +984,7 @@ def move_stage():
   dx = current[0]-previous_xyz[0]
   dy = current[2]-previous_xyz[2]
   # right now, Y and Z axes are swapped
-  stage_socket.send(msgpack.packb([time.time_ns(), dx, dy, 0]))
+  #stage_socket.send(msgpack.packb([time.time_ns(), dx, dy, 0]))
   previous_xyz = stage.xyz()
   print(f"test {dx} {dy}", flush=True)
 
@@ -1000,13 +1000,13 @@ gui_camera_preview_job_time = 0
 # sends image to stage controller
 def cv_stage(camera_image):
   grayscale = cv2.normalize(camera_image, None, 0, 255, cv2.NORM_MINMAX)
-  stage_ll.updateImage(grayscale)
+  #stage_ll.updateImage(grayscale)
 
 
 # updates camera preview on GUI
 def gui_camera_preview(camera_image, dimensions):
   pil_img = Image.fromarray(camera_image, mode='L')
-  gui_img = rasterize(pil_img.resize(fit_image(pil_img, (GUI.window_size[0],int((GUI.window_size[0]*dimensions[0])/dimensions[1]//1))), Image.Resampling.LANCZOS))
+  gui_img = rasterize(pil_img.resize(fit_image(pil_img, (GUI.window_size[0],int((GUI.window_size[0]*dimensions[0])/dimensions[1]//1))), Image.Resampling.NEAREST))
   camera.config(image=gui_img)
   camera.image = gui_img
 

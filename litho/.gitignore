@@ -3,3 +3,6 @@ scripts/*png
 __pycache__
 scripts/camera/flir/*
 venv/
+*.so
+*.jls
+*.whl

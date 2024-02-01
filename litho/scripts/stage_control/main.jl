@@ -118,7 +118,7 @@ display(f)
 
 
 
-valid_rng = 35:957
+valid_rng = 35:2200
 idinput = reverse(VisionErrState_id["u"][1:2, valid_rng], dims=2)
 idoutput = detrend(reverse(VisionErrState_id["x"][1:2, valid_rng], dims=2))
 ts = reverse(VisionErrState_id["t"][valid_rng], dims=1)
@@ -130,3 +130,39 @@ myiddata = iddata(
 )
 
 ssid = subspaceid(myiddata, 2, zeroD = true, verbose = true)
+
+ssid.C
+
+
+
+open("VisionErrState_chirp.jls", "w") do f
+    serialize(f, Dict(
+        "x" => VisionErrState[:x][],
+        "xi" => VisionErrState[:xi][],
+        "xd" => VisionErrState[:xd][],
+        "u" => VisionErrState[:u][],
+        "r" => VisionErrState[:r][],
+        "t" => VisionErrState[:t][],
+        "em" => VisionErrState[:em][],
+        "P" => VisionErrState[:P][],
+    ))
+end
+VisionErrState
+initidxend = 2200
+valid_rng = 1:initidxend
+idinput = reverse(VisionErrState[:u][][1:2, valid_rng], dims=2)
+idoutput = detrend(reverse(VisionErrState[:x][][1:2, valid_rng], dims=2))
+ts = reverse(VisionErrState[:t][][valid_rng], dims=1)
+
+myiddata = iddata(
+    idoutput,
+    idinput,
+    sum(ts[2:end] - ts[1:end-1]) / length(ts),
+)
+
+ssid = subspaceid(myiddata, 2, zeroD = true, verbose = true)
+ssid.B
+VisionErrSys[:B][1:2, 1:2] .= ssid.B
+VisionErrSys[:C][1:2, 1:2] = ssid.C
+VisionErrSys[:B][1:2, 1:2]
+

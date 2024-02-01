@@ -1,7 +1,7 @@
 # echo 1000 > /sys/module/usbcore/parameters/usbfs_memory_mb
 
 # %%
-import PySpin
+from pyspin import PySpin
 import numpy as np
 processor = PySpin.ImageProcessor()
 processor.SetColorProcessing(PySpin.SPINNAKER_COLOR_PROCESSING_ALGORITHM_HQ_LINEAR)

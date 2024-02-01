@@ -1,5 +1,5 @@
 using Pkg
-ENV["PYTHON"] = abspath("venv/bin/python")
+ENV["PYTHON"] = abspath("C:\\Users\\Hacker Fab\\AppData\\Local\\Programs\\Python\\Python310\\python.exe")
 Pkg.build("PyCall")
 using PackageCompiler
 PackageCompiler.create_sysimage(; sysimage_path="JuliaSysimage.so",

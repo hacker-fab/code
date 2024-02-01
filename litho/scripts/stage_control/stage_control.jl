@@ -9,10 +9,11 @@ using ForwardDiff
 using ZMQ
 using ZeroMQ_jll
 using MsgPack
+using ControlSystemIdentification
+using ControlSystemsBase
 include("utils.jl")
 
 portname1 = "COM6"
-portname2 = "/dev/ttyACM0"
 baudrate = 115200
 
 ## Data
@@ -20,36 +21,24 @@ window_size = 5000
 
 # Vision System
 VisionErrSys = Dict(
-    :A => [0.0 0 0
-        0 0.0 0
-        0 0 0.0],
-    :B => [1 0 0 # estimated
-        0 1 0
-        0 0 1],
-    :C => [1.0 0 0
-        0 1.0 0
-        0 0 1.0],
-    :D => [0.0 0 0
-        0 0 0
-        0 0 0],
-    :A => [0.0 0 0
-        0 0.0 0
-        0 0 0.0],
-    :B => [1.4464407018344951  -1.6508435498432217 0
-    0.5870122079007305   4.5153087583181835 0
+    :A => [0.0 0.0 0.0
+        0.0 0.0 0.0
         0.0 0.0 0.0],
-    :C => [-14.56077763865841    -4.9681782988376675 0
-    8.071668829950482  -18.84906267728016 0
+    :B => [1.0 0.0 0.0 # estimated
+        0.0 1.0 0.0
+        0.0 0.0 1.0],
+    :C => [1.0 0.0 0.0 # estimated
+        0.0 1.0 0.0
+        0.0 0.0 1.0],
+    :D => [0.0 0.0 0.0
+        0.0 0.0 0.0
         0.0 0.0 0.0],
-    :D => [0 0 0
-        0 0 0
-        0 0 0],
-    :A_m => [0.0 0 0
-        0 0.0 0
-        0 0 0.0],
-    :B_m => [1 0 0
-        0 1 0
-        0 0 1],
+    :A_m => [0.0 0.0 0.0
+        0.0 0.0 0.0
+        0.0 0.0 0.0],
+    :B_m => [1.0 0.0 0.0 # estimated
+        0.0 1.0 0.0
+        0.0 0.0 1.0],
     # Noise Model
     :R => 100.0 * Diagonal([1.0 for i in 1:3]),
     :Q => 100.0 * Diagonal([1.0 for i in 1:3]),
@@ -97,7 +86,7 @@ VisionErrState = Dict(
 # Vision Thread
 function updateVisionError(errCh, sys, state, BRLS, mracparam, t0)
     global running, mouseinit
-
+    initidxend = -1
     LibSerialPort.open(portname1, baudrate) do sp1
         prev_t = time_ns()
         while running
@@ -106,22 +95,52 @@ function updateVisionError(errCh, sys, state, BRLS, mracparam, t0)
 
             lock(state[:lock]) do
                 lock(sys[:lock]) do
-                    # if (time_ns() - t0) * 1.0e-9 > 0.0 && (time_ns() - t0) * 1.0e-9 < 170.0
-                    #     # calibration trajectory
-                    #     # r = bootstrap_stepper_u0((time_ns() - t0) * 1.0e-9, 0.06)
-                    #     r = chirp((time_ns() - t0 - 0) * 1.0e-9, 1.0, 15, 0.03)
-                    #     # if (time_ns() - t0) * 1.0e-9 < 100.0
-                    #     #     r = bootstrap_stepper_u0((time_ns() - t0) * 1.0e-9, 0.06)
-                    # else
-                    #     running = false
-                    # minimize reference using simple pid
-                    r = (0.008) * pinv(sys[:B]) * ((state[:x][][:, 1])) +
-                        (0.00007) * pinv(sys[:B]) * ((state[:xi][][:, 1])) + 
-                        (0.003) * pinv(sys[:B]) * ((state[:xd][][:, 1]))
+                    if (time_ns() - t0) * 1.0e-9 > 0.0 && (time_ns() - t0) * 1.0e-9 < 170.0
+                        # calibration trajectory
+                        # r = bootstrap_stepper_u0((time_ns() - t0) * 1.0e-9, 0.06)
+                        r = chirp((time_ns() - t0 - 0) * 1.0e-9, 1.0, 15, 0.03)
+                        # if (time_ns() - t0) * 1.0e-9 < 100.0
+                        #     r = bootstrap_stepper_u0((time_ns() - t0) * 1.0e-9, 0.06)
+                        initidxend += 1
+                    else
+                        if initidxend != -1
+                            open("VisionErrState_chirp.jls", "w") do f
+                                serialize(f, Dict(
+                                    "x" => state[:x][],
+                                    "xi" => state[:xi][],
+                                    "xd" => state[:xd][],
+                                    "u" => state[:u][],
+                                    "r" => state[:r][],
+                                    "t" => state[:t][],
+                                    "em" => state[:em][],
+                                    "P" => state[:P][],
+                                ))
+                            end
+                            valid_rng = 1:initidxend
+                            idinput = reverse(state[:u][][1:2, valid_rng], dims=2)
+                            idoutput = detrend(reverse(state[:x][][1:2, valid_rng], dims=2))
+                            ts = reverse(state[:t][][valid_rng], dims=1)
 
-                    # r = (0.01) * pinv(sys[:B]) * ((state[:x][][:, 1]))
-                    # r = (0.025) * ((state[:x][][:, 1]))
-                    # end
+                            myiddata = iddata(
+                                idoutput,
+                                idinput,
+                                sum(ts[2:end] - ts[1:end-1]) / length(ts),
+                            )
+
+                            ssid = subspaceid(myiddata, 2, zeroD=true, verbose=true)
+                            sys[:B][1:2, 1:2] = ssid.B
+                            sys[:C][1:2, 1:2] = ssid.C
+                            initidxend = -1
+                        end
+
+                        # minimize reference using simple pid
+                        r = (0.008) * pinv(sys[:B]) * ((state[:x][][:, 1])) +
+                            (0.00007) * pinv(sys[:B]) * ((state[:xi][][:, 1])) +
+                            (0.003) * pinv(sys[:B]) * ((state[:xd][][:, 1]))
+
+                        # r = (0.01) * pinv(sys[:B]) * ((state[:x][][:, 1]))
+                        # r = (0.025) * ((state[:x][][:, 1]))
+                    end
 
                     state[:t][] = circshift(state[:t][], (1,))
                     state[:x][] = circshift(state[:x][], (0, 1))
