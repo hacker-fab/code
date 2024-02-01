@@ -6,12 +6,14 @@ from litho_img_lib import *
 from litho_gui_lib import *
 
 from config import camera as camera_hw
-#from stage_control.stage_controller import StageControllerLowLevel
-#from stage_control.stage_controller import socket as stage_socket
 import cv2
 import threading
 import time
+import sys
+import zmq
 import msgpack
+import struct
+import numpy as np
 
 # TODO
 # - Camera Integration
@@ -22,7 +24,6 @@ import msgpack
 #     Make stage move with stage controls and tiling
 # 
 # Low Priority
-# - an image showing live camera output (I'll just set the image and it will update basically)
 # - CLI
 # - add a button to show pure white image for flatfield correction
 # - fix bug where flatfield pattern is reapplied on second pattern show
@@ -33,27 +34,26 @@ import msgpack
 # - Add user controllable tile adjustment and continue
 # - use a paste command to put the preview on a black background to represent the actual exposure. 
 
-VERSION: str = "1.4.4"
+VERSION: str = "1.5.0"
 ''' Patch Notes
 
 **Major**
-- Implemented slicer and stepping
- - The main slicing code is a standalone function in litho_img_lib, it's **very** feature rich and robust
- - implemented a class to allow for easier stepping through the slices
- - integrated this with the rest of the GUI, this was _very_ hard
+- Receives live camera feed from Julia process (PUB/SUB via ZMQ)
+- Integrated interactive motor control GUI with CV and PID control
 **Minor**
-- Keyboard Input for moving stage
- - Can now move stage with the arrow keys: up/down/left/right for xy and ctrl or shift + up/down for z axis
-- Yet another large layout redesign
-- backend refactoring
-- abort button is dynamic
-- added a progress bar for the total progress of the pattern
-- Increased UI feedback to user to reduce learning curve
+- More flexible GUI loop backend (do other things in update loop)
+- Cleaner and more elegant way to exit program (good for ZMQ sockets)
 
-**For V2.0.0**
-- Integrate camera feed
-- Integrate CV
-- Integrate stage
+**TODO for 1.5.1**
+- Integrate displacement/tiling logic with motor control (ZMQ)
+- Improve camera preview sizing on GUI (i.e. take up less space) 
+- Allow configuring camera source for either python-controlled or Julia-controlled
+
+**TODO for later versions**
+- Code refactoring
+- Performance enhancements
+- Automatic step and expose
+- UI improvements
 
 '''
 
@@ -1036,16 +1036,54 @@ def cameraCallback(image, dimensions, format):
   #print(f'image captured; num_threads={len(threading.enumerate())}', flush=True)
 
 
-if not camera_hw.open():
-  debug.error("Camera failed to start.")
-else:
-  camera_hw.setSetting('image_format', "mono8")
-  camera_hw.setStreamCaptureCallback(cameraCallback)
+def setup_camera_from_py():
+  if not camera_hw.open():
+    debug.error("Camera failed to start.")
+  else:
+    camera_hw.setSetting('image_format', "mono8")
+    camera_hw.setStreamCaptureCallback(cameraCallback)
 
-  if not camera_hw.startStreamCapture():
-    debug.error('Failed to start stream capture for camera')
+    if not camera_hw.startStreamCapture():
+      debug.error('Failed to start stream capture for camera')
 #endregion: Camera Setup
 
-GUI.debug.info("Debug info will appear here")
-GUI.mainloop()
+#region: ZMQ setup
+# See https://zguide.zeromq.org/docs and https://pyzmq.readthedocs.io/en/latest/api/zmq.html
+JULIA_PORT = "5555"
+zmq_context = zmq.Context()
 
+julia_socket = zmq_context.socket(zmq.SUB)
+julia_socket.connect("tcp://127.0.0.1:%s" % JULIA_PORT)
+julia_socket.setsockopt_string(zmq.SUBSCRIBE, "")
+
+zmq_poller = zmq.Poller()
+zmq_poller.register(julia_socket, zmq.POLLIN)
+
+#endregion: ZMQ setup
+
+# cleanup function for graceful program exit
+def cleanup():
+  # might need to add more ZMQ cleanup. TODO: needs more testing for cleanup function
+  zmq_context.destroy()
+  should_run = False
+
+# attach cleanup function to GUI close event
+GUI.root.protocol("WM_DELETE_WINDOW", cleanup)
+GUI.debug.info("Debug info will appear here")
+
+# main loop
+should_run = True
+while(should_run):
+  # non-blocking poll for ZMQ events
+  zmq_events = zmq_poller.poll(5) # timeout of 5ms
+  # if there's an event, assume it's the socket for sending the camera image
+  if len(zmq_events) > 0:
+    # get image from socket
+    image = zmq_events[0][0].recv_pyobj()
+    w, h = image.shape
+    # update gui camera preview
+    gui_camera_preview(image, (w, h))
+
+  GUI.update()
+
+print("Patterning GUI closed.")
