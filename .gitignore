@@ -1,0 +1,10 @@
+# images
+*.jpg
+*.png
+*.jpeg
+
+# cad files
+*.SLDPRT
+*.STEP
+*.ALDASM
+*.stp
