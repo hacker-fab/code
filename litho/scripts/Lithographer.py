@@ -394,9 +394,32 @@ GUI.add_widget("uv_focus_button", uv_focus_button)
 
 GUI.root.grid_columnconfigure(2, minsize=SPACER_SIZE)
 
-#region: Stage Control Area
-stage_row: int = 3
+#region: Stage and Fine Adjustment Smart Area
+
+#region: Smart Area
+center_display: Literal['stage', 'fine'] = 'stage'
+
+stage_row: int = 4
 stage_col: int = 3
+#create smart area for stage and fine adjustment
+center_area: Smart_Area = Smart_Area(
+  gui=GUI,
+  debug=debug)
+#create button to toggle between stage and fine adjustment
+center_area_toggle: Toggle = Toggle(
+  root=GUI.root,
+  text=("Fine Adjustment Controls","Stage Controls"),
+  colors=(("black","white"),("black","light blue")),
+  func=lambda: center_area.next(),
+  debug=debug)
+center_area_toggle.grid(row = stage_row-1,
+                        col = stage_col,
+                        colspan = 3)
+GUI.add_widget("center_area_toggle", center_area_toggle)
+
+#endregion
+
+#region: Stage Control
 
 stage: Stage_Controller = Stage_Controller(
 debug=debug,
@@ -406,9 +429,8 @@ def step_update(axis: Literal['-x','+x','-y','+y','-z','+z']):
   if(x_step_intput.changed() or y_step_intput.changed() or z_step_intput.changed()):
     stage.step_size = (x_step_intput.get(), y_step_intput.get(), z_step_intput.get())
   stage.step(axis)
-  
-#region: Stage Position
 
+#region: Stage Position
 stage_position_text: Label = Label(
   GUI.root,
   text = "Stage Position",
@@ -433,7 +455,8 @@ set_coords_button.grid(
   column = stage_col,
   columnspan = 3,
   sticky='nesw')
-  
+GUI.add_widget("set_coords_button", set_coords_button)
+
 x_intput = Intput(
   root=GUI.root,
   name="X",
@@ -518,7 +541,7 @@ up_x_button.grid(
   row = stage_row+step_button_row,
   column = stage_col,
   sticky='nesw')
-GUI.add_widget("up_button", up_x_button)
+GUI.add_widget("up_x_button", up_x_button)
 
 down_x_button: Button = Button(
   GUI.root,
@@ -529,7 +552,7 @@ down_x_button.grid(
   row = stage_row+step_button_row+1,
   column = stage_col,
   sticky='nesw')
-GUI.add_widget("down_button", down_x_button)
+GUI.add_widget("down_x_button", down_x_button)
 
 ### Y axis ###
 up_y_button: Button = Button(
@@ -541,7 +564,7 @@ up_y_button.grid(
   row = stage_row+step_button_row,
   column = stage_col+1,
   sticky='nesw')
-GUI.add_widget("up_button", up_y_button)
+GUI.add_widget("up_y_button", up_y_button)
 
 down_y_button: Button = Button(
   GUI.root,
@@ -552,7 +575,7 @@ down_y_button.grid(
   row = stage_row+step_button_row+1,
   column = stage_col+1,
   sticky='nesw')
-GUI.add_widget("down_button", down_y_button)
+GUI.add_widget("down_y_button", down_y_button)
 
 ### Z axis ###
 up_z_button: Button = Button(
@@ -564,7 +587,7 @@ up_z_button.grid(
   row = stage_row+step_button_row,
   column = stage_col+2,
   sticky='nesw')
-GUI.add_widget("up_button", up_z_button)
+GUI.add_widget("up_z_button", up_z_button)
 
 down_z_button: Button = Button(
   GUI.root,
@@ -575,24 +598,278 @@ down_z_button.grid(
   row = stage_row+step_button_row+1,
   column = stage_col+2,
   sticky='nesw')
-GUI.add_widget("down_button", down_z_button)
+GUI.add_widget("down_z_button", down_z_button)
 
 #endregion
 
 #region: keyboard input
 
-GUI.root.bind('<Up>', lambda event: step_update('+y'))
-GUI.root.bind('<Down>', lambda event: step_update('-y'))
-GUI.root.bind('<Left>', lambda event: step_update('-x'))
-GUI.root.bind('<Right>', lambda event: step_update('+x'))
-GUI.root.bind('<Control-Up>', lambda event: step_update('+z'))
-GUI.root.bind('<Control-Down>', lambda event: step_update('-z'))
-GUI.root.bind('<Shift-Up>', lambda event: step_update('+z'))
-GUI.root.bind('<Shift-Down>', lambda event: step_update('-z'))
+def bind_stage_controls() -> None:
+  GUI.root.bind('<Up>',           lambda event: step_update('+y'))
+  GUI.root.bind('<Down>',         lambda event: step_update('-y'))
+  GUI.root.bind('<Left>',         lambda event: step_update('-x'))
+  GUI.root.bind('<Right>',        lambda event: step_update('+x'))
+  GUI.root.bind('<Control-Up>',   lambda event: step_update('+z'))
+  GUI.root.bind('<Control-Down>', lambda event: step_update('-z'))
+  GUI.root.bind('<Shift-Up>',     lambda event: step_update('+z'))
+  GUI.root.bind('<Shift-Down>',   lambda event: step_update('-z'))
+def unbind_stage_controls() -> None:
+  GUI.root.unbind('<Up>')
+  GUI.root.unbind('<Down>')
+  GUI.root.unbind('<Left>')
+  GUI.root.unbind('<Right>')
+  GUI.root.unbind('<Control-Up>')
+  GUI.root.unbind('<Control-Down>')
+  GUI.root.unbind('<Shift-Up>')
+  GUI.root.unbind('<Shift-Down>')
 
 #endregion
 
+center_area.add(0,["stage_position_text",
+                   "set_coords_button",
+                   "x_intput",
+                   "y_intput",
+                   "z_intput",
+                   "step_size_text",
+                   "x_step_intput",
+                   "y_step_intput",
+                   "z_step_intput",
+                   "up_x_button",
+                   "down_x_button",
+                   "up_y_button",
+                   "down_y_button",
+                   "up_z_button",
+                   "down_z_button"]) 
+center_area.add_func(0,bind_stage_controls, unbind_stage_controls)
 #endregion
+
+#region: Fine Adjustment Area
+
+fine_adjust: Stage_Controller = Stage_Controller(
+  debug=debug,
+  verbosity=3)
+def fine_step_update(axis: Literal['-x','+x','-y','+y','-z','+z']):
+  # first check if the step size has changed
+  if(fine_x_step_intput.changed() or fine_y_step_intput.changed() or fine_theta_step_intput.changed()):
+    fine_adjust.step_size = (fine_x_step_intput.get(), fine_y_step_intput.get(), fine_theta_step_intput.get())
+  fine_adjust.step(axis)
+
+#region: Fine Adjustment Position
+fine_position_text: Label = Label(
+  GUI.root,
+  text = "Fine Adjustment Position",
+  justify = 'center',
+  anchor = 'center'
+)
+fine_position_text.grid(
+  row = stage_row,
+  column = stage_col,
+  columnspan = 3,
+  sticky='nesw')
+GUI.add_widget("fine_position_text", fine_position_text)
+
+set_adjustment_button: Button = Button(
+  GUI.root,
+  text = 'Set Fine Adjustment',
+  command = lambda : fine_adjust.set(fine_x_intput.get(), fine_y_intput.get(), fine_z_intput.get())
+  )
+set_adjustment_button.grid(
+  row = stage_row+3,
+  column = stage_col,
+  columnspan = 3,
+  sticky='nesw')
+GUI.add_widget("set_adjustment_button", set_adjustment_button)
+
+fine_x_intput = Intput(
+  root=GUI.root,
+  name="X",
+  default=fine_adjust.x(),
+  debug=debug)
+fine_x_intput.grid(stage_row+1,stage_col,rowspan=2)
+GUI.add_widget("fine_x_intput", fine_x_intput)
+fine_adjust.update_funcs["x"]["fine x intput"] = lambda: fine_x_intput.set(fine_adjust.x())
+
+fine_y_intput = Intput(
+  root=GUI.root,
+  name="Y",
+  default=fine_adjust.y(),
+  debug=debug)
+fine_y_intput.grid(stage_row+1,stage_col+1,rowspan=2)
+GUI.add_widget("fine_y_intput", fine_y_intput)
+fine_adjust.update_funcs["y"]["fine y intput"] = lambda: fine_y_intput.set(fine_adjust.y())
+
+fine_theta_intput = Intput(
+  root=GUI.root,
+  name="Theta",
+  default=fine_adjust.z(),
+  debug=debug)
+fine_theta_intput.grid(stage_row+1,stage_col+2,rowspan=2)
+GUI.add_widget("fine_theta_intput", fine_theta_intput)
+fine_adjust.update_funcs["z"]["fine theta intput"] = lambda: fine_theta_intput.set(fine_adjust.z())
+
+#endregion
+
+#region: Fine Adjustment Step size
+fine_step_size_row: int = 5
+
+fine_step_size_text: Label = Label(
+  GUI.root,
+  text = "Fine Adjustment Step Size",
+  justify = 'center',
+  anchor = 'center'
+)
+fine_step_size_text.grid(
+  row = stage_row+fine_step_size_row,
+  column = stage_col,
+  columnspan = 3,
+  sticky='nesw'
+)
+GUI.add_widget("fine_step_size_text", fine_step_size_text)
+
+fine_x_step_intput = Intput(
+  root=GUI.root,
+  name="X",
+  default=1,
+  debug=debug)
+fine_x_step_intput.grid(stage_row+fine_step_size_row+1,stage_col)
+GUI.add_widget("fine_x_step_intput", fine_x_step_intput)
+
+fine_y_step_intput = Intput(
+  root=GUI.root,
+  name="Y",
+  default=1,
+  debug=debug)
+fine_y_step_intput.grid(stage_row+fine_step_size_row+1,stage_col+1)
+GUI.add_widget("fine_y_step_intput", fine_y_step_intput)
+
+fine_theta_step_intput = Intput(
+  root=GUI.root,
+  name="Theta",
+  default=1,
+  debug=debug)
+fine_theta_step_intput.grid(stage_row+fine_step_size_row+1,stage_col+2)
+GUI.add_widget("fine_theta_step_intput", fine_theta_step_intput)
+
+#endregion
+
+#region: fine stepping buttons
+fine_step_button_row = 7
+### X axis ###
+fine_up_x_button: Button = Button(
+  GUI.root,
+  text = '+x',
+  command = lambda : fine_step_update('+x')
+  )
+fine_up_x_button.grid(
+  row = stage_row+fine_step_button_row,
+  column = stage_col,
+  sticky='nesw')
+GUI.add_widget("fine_up_x_button", fine_up_x_button)
+
+fine_down_x_button: Button = Button(
+  GUI.root,
+  text = '-x',
+  command = lambda : fine_step_update('-x')
+  )
+fine_down_x_button.grid(
+  row = stage_row+fine_step_button_row+1,
+  column = stage_col,
+  sticky='nesw')
+GUI.add_widget("fine_down_x_button", fine_down_x_button)
+
+### Y axis ###
+fine_up_y_button: Button = Button(
+  GUI.root,
+  text = '+y',
+  command = lambda : fine_step_update('+y')
+  )
+fine_up_y_button.grid(
+  row = stage_row+fine_step_button_row,
+  column = stage_col+1,
+  sticky='nesw')
+GUI.add_widget("fine_up_y_button", fine_up_y_button)
+
+fine_down_y_button: Button = Button(
+  GUI.root,
+  text = '-y',
+  command = lambda : fine_step_update('-y')
+  )
+fine_down_y_button.grid(
+  row = stage_row+fine_step_button_row+1,
+  column = stage_col+1,
+  sticky='nesw')
+GUI.add_widget("fine_down_y_button", fine_down_y_button)
+
+### Theta ###
+fine_up_theta_button: Button = Button(
+  GUI.root,
+  text = '+theta',
+  command = lambda : fine_step_update('+z')
+  )
+fine_up_theta_button.grid(
+  row = stage_row+fine_step_button_row,
+  column = stage_col+2,
+  sticky='nesw')
+GUI.add_widget("fine_up_theta_button", fine_up_theta_button)
+
+fine_down_theta_button: Button = Button(
+  GUI.root,
+  text = '-theta',
+  command = lambda : fine_step_update('-z')
+  )
+fine_down_theta_button.grid(
+  row = stage_row+fine_step_button_row+1,
+  column = stage_col+2,
+  sticky='nesw')
+GUI.add_widget("fine_down_theta_button", fine_down_theta_button)
+
+#endregion
+
+#region: keyboard input
+def bind_fine_controls() -> None:
+  GUI.root.bind('<Up>',           lambda event: fine_step_update('+y'))
+  GUI.root.bind('<Down>',         lambda event: fine_step_update('-y'))
+  GUI.root.bind('<Left>',         lambda event: fine_step_update('-x'))
+  GUI.root.bind('<Right>',        lambda event: fine_step_update('+x'))
+  GUI.root.bind('<Control-Up>',   lambda event: fine_step_update('+z'))
+  GUI.root.bind('<Control-Down>', lambda event: fine_step_update('-z'))
+  GUI.root.bind('<Shift-Up>',     lambda event: fine_step_update('+z'))
+  GUI.root.bind('<Shift-Down>',   lambda event: fine_step_update('-z'))
+def unbind_fine_controls() -> None:
+  GUI.root.unbind('<Up>')
+  GUI.root.unbind('<Down>')
+  GUI.root.unbind('<Left>')
+  GUI.root.unbind('<Right>')
+  GUI.root.unbind('<Control-Up>')
+  GUI.root.unbind('<Control-Down>')
+  GUI.root.unbind('<Shift-Up>')
+  GUI.root.unbind('<Shift-Down>')
+  
+#endregion
+
+center_area.add(1,["fine_position_text",
+                    "set_adjustment_button",
+                    "fine_x_intput",
+                    "fine_y_intput",
+                    "fine_theta_intput",
+                    "fine_step_size_text",
+                    "fine_x_step_intput",
+                    "fine_y_step_intput",
+                    "fine_theta_step_intput",
+                    "fine_up_x_button",
+                    "fine_down_x_button",
+                    "fine_up_y_button",
+                    "fine_down_y_button",
+                    "fine_up_theta_button",
+                    "fine_down_theta_button"])
+center_area.add_func(1,bind_fine_controls, unbind_fine_controls)
+#endregion
+
+center_area.add(1,[])
+
+#endregion
+
+center_area.jump(0)
 
 GUI.root.grid_columnconfigure(6, minsize=SPACER_SIZE)
 
@@ -962,7 +1239,5 @@ GUI.add_widget("clear_button", clear_button)
 
 GUI.debug.info("Debug info will appear here")
 GUI.mainloop()
-
-
 
 

@@ -4,8 +4,7 @@ from PIL import ImageTk, Image
 from time import time
 from os.path import basename
 from litho_img_lib import *
-from typing import Callable, Literal
-
+from typing import Callable, Literal, Union
 
 # widget to display info, errors, warning, and text
 class Debug():
@@ -48,13 +47,20 @@ class Debug():
     print("e "+text)
   
   # place widget on the grid
-  def grid(self, row, col, colspan = 1, rowspan = 1):
-    self.widget.grid(row = row,
-                     column = col,
-                     rowspan = rowspan,
-                     columnspan = colspan,
-                     sticky = "nesw")
-    
+  def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
+    if(row == None or col == None):
+      self.widget.grid()
+    else:
+      self.widget.grid(row = row,
+                       column = col,
+                       rowspan = rowspan,
+                       columnspan = colspan,
+                       sticky = "nesw")
+  
+  # remove widget from the grid
+  def grid_remove(self):
+    self.widget.grid_remove()
+  
   # set the text and background color
   def __set_color__(self, colors: tuple[str,str]):
     self.widget.config(fg = colors[0],
@@ -67,21 +73,22 @@ class Toggle():
   state: bool
   # user-inputted fields
   text: tuple[str,str]
-  colors: tuple[str,str]
+  colors: tuple[tuple[str,str],tuple[str,str]]
   debug: Debug | None
   func_high: Callable | None
   func_low: Callable | None
   func_always: Callable | None
   
   # create new Toggle widget
-  def __init__(self, root: Tk,
-               text: tuple[str,str], 
-               colors: tuple[str,str] = ("black", "white"), 
-               initial_state:bool=False,
-               debug: Debug | None = None,
-               func_on_true: Callable | None = None,
-               func_on_false: Callable | None = None,
-               func: Callable | None = None):
+  def __init__( self, root: Tk,
+                text: tuple[str,str], 
+                colors: tuple[tuple[str,str],tuple[str,str]] = 
+                  (("black", "white"),("white", "black")), 
+                initial_state:bool=False,
+                debug: Debug | None = None,
+                func_on_true: Callable | None = None,
+                func_on_false: Callable | None = None,
+                func: Callable | None = None):
     # set fields
     self.text = text
     self.colors = colors
@@ -96,13 +103,20 @@ class Toggle():
     self.__update__()
   
   # place widget on the grid
-  def grid(self, row, col, colspan = 1, rowspan = 1):
-    self.widget.grid(row = row,
-                     column = col,
-                     rowspan = rowspan,
-                     columnspan = colspan,
-                     sticky = "nesw")
+  def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
+    if(row == None or col == None):
+      self.widget.grid()
+    else:
+      self.widget.grid(row = row,
+                       column = col,
+                       rowspan = rowspan,
+                       columnspan = colspan,
+                       sticky = "nesw")
   
+  # remove widget from the grid
+  def grid_remove(self):
+    self.widget.grid_remove()
+    
   # toggle the state and update widget
   # optionally specify function to call when pressed
   def toggle(self, func = None):
@@ -118,17 +132,17 @@ class Toggle():
   # update widget to reflect current state
   def __update__(self):
     if(self.state):
-      self.widget.config( fg = self.colors[1],
-                          bg = self.colors[0],
+      self.widget.config( fg = self.colors[1][0],
+                          bg = self.colors[1][1],
                           text = self.text[0])
       if(self.debug != None):
-        self.debug.info(self.text[0])
+        self.debug.info("Toggle set to "+self.text[0])
     else:
-      self.widget.config( fg = self.colors[0],
-                          bg = self.colors[1],
+      self.widget.config( fg = self.colors[0][0],
+                          bg = self.colors[0][1],
                           text = self.text[1])
       if(self.debug != None):
-        self.debug.info(self.text[1])
+        self.debug.info("Toggle set to "+self.text[1])
 
 # creates thumbnail / image import widget
 class Thumbnail():
@@ -238,13 +252,20 @@ class Thumbnail():
     self.widget.image = photoImage
     
   # place widget on the grid
-  def grid(self, row, col, colspan = 1, rowspan = 1):
-    self.widget.grid(row = row,
-                     column = col,
-                     rowspan = rowspan,
-                     columnspan = colspan,
-                     sticky = "nesw")
+  def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
+    if(row == None or col == None):
+      self.widget.grid()
+    else:
+      self.widget.grid(row = row,
+                       column = col,
+                       rowspan = rowspan,
+                       columnspan = colspan,
+                       sticky = "nesw")
 
+  # remove widget from the grid
+  def grid_remove(self):
+    self.widget.grid_remove()
+    
 # creates a better int input field
 class Intput():
   widget: Entry
@@ -298,13 +319,20 @@ class Intput():
     self.__update__()
   
   # place widget on the grid
-  def grid(self, row, col, colspan = 1, rowspan = 1):
-    self.widget.grid(row = row,
-                     column = col,
-                     rowspan = rowspan,
-                     columnspan = colspan,
-                     sticky = "nesw")
+  def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
+    if(row == None or col == None):
+      self.widget.grid()
+    else:
+      self.widget.grid(row = row,
+                       column = col,
+                       rowspan = rowspan,
+                       columnspan = colspan,
+                       sticky = "nesw")
 
+  # remove widget from the grid
+  def grid_remove(self):
+    self.widget.grid_remove()
+    
   # get the more recent vaid value
   def get(self, update: bool = True) -> int:
     if(update):
@@ -477,7 +505,6 @@ class TextPopup():
                     compound = "top")
     self.widget = button
 
-
   #show the text popup
   def show(self):
     self.__TL__ = Toplevel(self.__root__)
@@ -490,15 +517,20 @@ class TextPopup():
       self.debug.info("Showing "+self.button_text+" popup")
     self.update()
 
-  
   # place widget on the grid
-  def grid(self, row, col, colspan = 1, rowspan = 1):
-    self.widget.grid(row = row,
-                     column = col,
-                     rowspan = rowspan,
-                     columnspan = colspan,
-                     sticky = "nesw")
+  def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
+    if(row == None or col == None):
+      self.widget.grid()
+    else:
+      self.widget.grid(row = row,
+                       column = col,
+                       rowspan = rowspan,
+                       columnspan = colspan,
+                       sticky = "nesw")
 
+  # remove widget from the grid
+  def grid_remove(self):
+    self.widget.grid_remove()
     
   def update(self, new_text: str = ""):
     if(new_text != ""):
@@ -511,6 +543,8 @@ class TextPopup():
 # TODO auto debug widget creation and application to children
 # GUI controller and widget manager
 class GUI_Controller():
+  # list of accepted widget types
+  gui_widgets = Union[Widget, Toggle, Thumbnail, Debug, Intput]
   #region: fields
   ### Internal Fields ###
   root: Tk
@@ -558,7 +592,7 @@ class GUI_Controller():
 
   #region: widget management
   #TODO test if typing like this actually works
-  def add_widget(self, name: str, widget: Widget | Toggle | Thumbnail | Debug | Intput):
+  def add_widget(self, name: str, widget: gui_widgets):
     # if a debug widget is added, save it as the debug field
     if(type(widget) == Debug):
       self.debug = widget
@@ -568,7 +602,7 @@ class GUI_Controller():
     self.update()
       
   # return widget by name, or None if not found
-  def get_widget(self, name: str) -> Widget | Toggle | Thumbnail | Debug | Intput | None:
+  def get_widget(self, name: str) -> gui_widgets | None:
     return self.__widgets__.get(name, None)
   
   # remove widget by name
@@ -855,4 +889,223 @@ class Slicer():
       (self.__grid_size__, self.__sliced_images__) = slice( self.__full_image__,
                                                             self.__horizontal_slices__,
                                                             self.__vertical_slices__)
+
+''' temporary deprecate
+# type class for an object to be contained within a smart area
+# contrains the cinstructor, destructor, and status of the object (true = instantiated)
+class Smart_Object():
+  __constructor__: Callable
+  __destructor__: Callable
+  __status__: bool
+  
+  def __init__(self, constructor: Callable, destructor: Callable):
+    self.__constructor__ = constructor
+    self.__destructor__ = destructor
+    self.__status__ = False
+
+  def construct(self):
+    if(self.__status__ == True):
+      raise Exception("Tried to construct object that is already constructed")
+    self.__constructor__()
+    self.__status__ = True
+    
+  def destruct(self):
+    if(self.__status__ == False):
+      raise Exception("Tried to destruct object that was not constructed")
+    self.__destructor__()
+    self.__status__ = False
+    
+  def status(self) -> bool:
+    return self.__status__
+
+# list of smart objects
+# will construct and destruct all objects in the list
+class Smart_List():
+    __widgets__: list[Smart_Object]
+    __status__: bool = False
+    
+    def __init__(self):
+      self.__widgets__ = []
+    
+    def construct(self):
+      if(self.__status__ == True):
+        raise Exception("Tried to construct list that is already constructed")
+      for obj in self.__widgets__:
+        obj.construct()
+      self.__status__ = True
+        
+    def destruct(self):
+      if(self.__status__ == False):
+        raise Exception("Tried to destruct list that was not constructed")
+      for obj in self.__widgets__:
+        obj.destruct()
+      self.__status__ = False
+      
+    def status(self) -> bool:
+      return self.__status__
+    
+    def add(self, constructor: Callable, destructor: Callable):
+      if(self.__status__ == True):
+        raise Exception("Tried to add object to a constructed list, deconstruct first")
+      self.__widgets__.append(Smart_Object(constructor, destructor))
+  #endregion
+
+# Class that controls sets of widgets for an area of the UI
+# User can add as many widgets to as many sets as they want
+# upon calling next, the current set will be deconstructed and the next set will be constructed
+class Smart_Area():
+  # list of smart objects lists
+  __widgets__: list[Smart_List]
+  # current index of the list
+  __index__: int = 0
+  # debug widget
+  debug: Debug | None
+  #endregion
+  
+  def __init__( self,
+                debug: Debug | None = None):
+    self.__widgets__ = []
+    self.debug = debug
+  
+  def add(self, set: int, constructor: Callable, destructor: Callable):
+    if(set < 0):
+      raise Exception("only positive set numbers are allowed")
+    if(set > len(self.__widgets__)):
+      raise Exception("set numbers must be consecutive, please add set", len(self.__widgets__), "first")
+    if(set == len(self.__widgets__)):
+      self.__widgets__.append(Smart_List())
+    self.__widgets__[set].add(constructor, destructor)
+  
+  def init(self, set: int=0):
+    self.__widgets__[set].construct()
+    self.__index__ = set
+  
+  def next(self):
+    self.__widgets__[self.__index__].destruct()
+    self.__index__ += 1
+    if(self.__index__ >= len(self.__widgets__)):
+      self.__index__ = 0
+    self.__widgets__[self.__index__].construct()
+
+  def prev(self):
+    self.__widgets__[self.__index__].destruct()
+    self.__index__ -= 1
+    if(self.__index__ < 0):
+      self.__index__ = len(self.__widgets__)-1
+    self.__widgets__[self.__index__].construct()
+    
+  def jump(self, set: int):
+    self.__widgets__[self.__index__].destruct()
+    self.__index__ = set
+    self.__widgets__[self.__index__].construct()
+
+  def index(self) -> int:
+    return self.__index__
+
+'''
+
+# swaps around groups of widgets
+# Requires a GUI controller
+# hides widgets with grid_remove()
+class Smart_Area():
+  # gui controller to query widgets from
+  __gui__: GUI_Controller
+  # list of widget lists
+  __widgets__: list[list[GUI_Controller.gui_widgets]] = []
+  # list of special fucntions to call when switching groups
+  # show first, hide second (show, hide)
+  __funcs__: list[tuple[Callable | None, Callable | None]] = []
+  # current index of the list
+  __index__: int = 0
+  # debug widget
+  debug: Debug | None
+  #endregion
+  
+  def __init__( self,
+                gui: GUI_Controller,
+                debug: Debug | None = None):
+    self.__gui__ = gui
+    self.debug = debug
+    
+  def __hide__(self, group: int, func_first: bool = True):
+    if(func_first and self.__funcs__[group][1] != None):
+      self.__funcs__[group][1]()
+    for widget in self.__widgets__[group]:
+      widget.grid_remove()
+    if(not func_first and self.__funcs__[group][1] != None):
+      self.__funcs__[group][1]()
+    
+  def __show__(self, group: int, func_first: bool = True):
+    if(func_first and self.__funcs__[group][0] != None):
+      self.__funcs__[group][0]()
+    for widget in self.__widgets__[group]:
+      widget.grid()
+    if(not func_first and self.__funcs__[group][0] != None):
+      self.__funcs__[group][0]()
+  
+  # add one or several widgets to specified group
+  # disable hide to leave widgets visible after adding (not recommended, use jump() instead)
+  def add(self, group: int, widgets: str | list[str], hide: bool = True):
+    #normalize to list
+    names: list[str]
+    if(type(widgets) == str):
+      names = [widgets]
+    elif(type(widgets) == list):
+      names = widgets
+    else:
+      raise Exception("widgets must be a string or a list of strings")
+    
+    # check group number
+    if(group < 0):
+      raise Exception("only positive group numbers are allowed")
+    elif(group > len(self.__widgets__)):
+      if(self.debug != None):      
+        self.debug.warn("non-consecutive group number, added filler groups")
+      for i in range(len(self.__widgets__), group+1):
+        self.__widgets__.append([])
+        self.__funcs__.append((None, None))
+    elif(group == len(self.__widgets__)):
+      self.__widgets__.append([])
+      self.__funcs__.append((None, None))
+      
+    # add widgets to list
+    for name in names:
+      widget: GUI_Controller.gui_widgets | None = self.__gui__.get_widget(name)
+      if(widget == None):
+        if(self.debug != None):
+          self.debug.error("Tried to add non-existent widget \""+str(group)+"\" to group "+str(group))
+      else:
+        self.__widgets__[group].append(widget)
+    
+    if(hide):
+      self.__hide__(group)
+  
+  # add special functions when showing or hiding a group
+  def add_func(self, group: int, show: Callable | None = None, hide: Callable | None = None):
+    if(group < 0 or group >= len(self.__funcs__)):
+      if(self.debug != None):
+        self.debug.error("can only add special functions to existing groups, add an empty group first")
+      return
+    self.__funcs__[group] = (show, hide)
+    
+  
+  # hide current widget and jump to specified group
+  # if order matters, toggle the func_first parameter (show, hide)
+  def jump(self, group: int, func_first: tuple[bool,bool] = (True, True)):
+    if(self.debug != None):
+      self.debug.info("switched from group "+str(self.__index__)+" to "+str(group % len(self.__widgets__)))
+    self.__hide__(self.__index__, func_first[1])
+    self.__index__ = group % len(self.__widgets__)
+    self.__show__(self.__index__, func_first[0])
+  
+  def next(self, func_first: tuple[bool,bool] = (True, True)):
+    self.jump(self.__index__ + 1, func_first)
+    
+  def prev(self, func_first: tuple[bool,bool] = (True, True)):
+    self.jump(self.__index__ - 1, func_first)
+
+  def index(self) -> int:
+    return self.__index__
+
+
 
