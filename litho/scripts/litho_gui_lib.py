@@ -88,7 +88,7 @@ class Toggle():
                 debug: Debug | None = None,
                 func_on_true: Callable | None = None,
                 func_on_false: Callable | None = None,
-                func: Callable | None = None):
+                func_always: Callable | None = None):
     # set fields
     self.text = text
     self.colors = colors
@@ -143,6 +143,77 @@ class Toggle():
                           text = self.text[0])
       if(self.debug != None):
         self.debug.info("Toggle set to "+self.text[0])
+
+# creates a cycle widget
+# Similar to a toggle, but pressing cycles through a list of states
+# each state contains: text, colors, and entering / exiting functions
+class Cycle():
+  # mandatory / main fields
+  Widget: Button
+  state: int
+  # user-inputted fields
+  # tuple structure: (text, (fg, bg), (enter, exit))
+  cycle_state_t = tuple[str, tuple[str,str], tuple[Callable | None, Callable | None]]
+  states: list[cycle_state_t]
+  debug: Debug | None
+  func_always: Callable | None
+  
+  # create new Cycle widget
+  def __init__( self, root: Tk,
+                debug: Debug | None = None,
+                func_always: Callable | None = None):
+    self.debug = debug
+    self.func_always = func_always
+    self.state = 0
+    self.states = []
+    self.widget = Button(root, command=self.cycle)
+    
+  # place widget on the grid
+  def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
+    if(row == None or col == None):
+      self.widget.grid()
+    else:
+      self.widget.grid(row = row,
+                       column = col,
+                       rowspan = rowspan,
+                       columnspan = colspan,
+                       sticky = "nesw")
+      
+  # remove widget from the grid
+  def grid_remove(self):
+    self.widget.grid_remove()
+    
+  # add a new state to the cycle
+  def add_state(self,
+                text: str = "",
+                colors: tuple[str,str] = ("black", "white"),
+                enter: Callable | None = None,
+                exit: Callable | None = None):
+    self.states.append((text, colors, (enter, exit)))
+  
+  # update widget to reflect specified state
+  def update(self, index: int = 0):
+    # call exit function of previous state
+    if(self.states[self.state][2][1] != None):
+      self.states[self.state][2][1]()
+    # update state
+    self.state = index
+    self.widget.config( text = self.states[index][0],
+                        fg = self.states[index][1][0],
+                        bg = self.states[index][1][1])
+    if(self.debug != None):
+      self.debug.info("Cycle set to "+str(index)+": "+self.states[index][0])
+    # call enter function of new state
+    if(self.states[index][2][0] != None):
+      self.states[index][2][0]()
+    # call always function if specified
+    if(self.func_always != None):
+      self.func_always()
+  
+  def cycle(self):
+    self.state += 1
+    self.update(self.state % len(self.states))
+
 
 # creates thumbnail / image import widget
 class Thumbnail():

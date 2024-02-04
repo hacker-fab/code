@@ -30,7 +30,7 @@ VERSION: str = "1.4.4"
 #region: setup
 THUMBNAIL_SIZE: tuple[int,int] = (160,90)
 CHIN_SIZE: int = 400
-GUI: GUI_Controller = GUI_Controller(grid_size = (14,10),
+GUI: GUI_Controller = GUI_Controller(grid_size = (14,11),
                                      title = "Lithographer "+VERSION,
                                      add_window_size=(0,CHIN_SIZE))
 SPACER_SIZE: int = GUI.window_size[0]//(GUI.grid_size[1]*5)
@@ -610,6 +610,11 @@ center_area.add_func(0,bind_stage_controls, unbind_stage_controls)
 
 #region: Fine Adjustment Area
 
+# IMPORTANT:
+# to reduce complexity, the fine adjustment area reuses the stage controller class but
+# instead of the z field and methods reprersenting the z axis, they represent the theta axis
+# this is confusing, but it's better than adding unnecessary complixty to the stage controller class
+
 fine_adjust: Stage_Controller = Stage_Controller(
   debug=debug,
   verbosity=3)
@@ -841,7 +846,7 @@ patterning_area_toggle: Toggle = Toggle(
   debug=debug)
 patterning_area_toggle.grid(row = pattern_row,
                         col = pattern_col,
-                        colspan = 3)
+                        colspan = 4)
 GUI.add_widget("patterning_area_toggle", patterning_area_toggle)
 
 #endregion
@@ -870,7 +875,7 @@ duration_intput: Intput = Intput(
   default=1000,
   min = 0,
   debug=debug)
-duration_intput.grid(pattern_row+options_row+1,pattern_col+options_col+1, colspan=2)
+duration_intput.grid(pattern_row+options_row+1,pattern_col+options_col+1, colspan=3)
 GUI.add_widget("duration_intput", duration_intput)
 
 #endregion
@@ -907,6 +912,10 @@ slicer_vert_intput: Intput = Intput(
 )
 slicer_vert_intput.grid(pattern_row+options_row+2,pattern_col+options_col+2)
 GUI.add_widget("slicer_vert_intput", slicer_vert_intput)
+
+slicer_pattern_button: Button = Button(
+  GUI.root,
+  
 #endregion
 
 #region: flatfield
@@ -1035,7 +1044,7 @@ Current_tile_text: Label = Label(
 Current_tile_text.grid(
   row = pattern_row+current_tile_row,
   column = pattern_col+current_tile_col,
-  columnspan = 3,
+  columnspan = 4,
   sticky='nesw'
 )
 GUI.add_widget("Current_tile_text", Current_tile_text)
@@ -1051,7 +1060,7 @@ next_tile_image.grid(
   row = pattern_row+current_tile_row+1,
   column = pattern_col+current_tile_col,
   rowspan=4,
-  columnspan=3,
+  columnspan=4,
   sticky='nesw'
 )
 GUI.add_widget("next_tile_image", next_tile_image)
@@ -1062,7 +1071,7 @@ GUI.add_widget("next_tile_image", next_tile_image)
 buttons_row = 6
 buttons_col = 0
 pattern_rowspan = 4
-pattern_colspan = 2
+pattern_colspan = 3
 clear_rowspan = 4
 clear_colspan = 1
 
