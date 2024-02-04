@@ -134,15 +134,15 @@ class Toggle():
     if(self.state):
       self.widget.config( fg = self.colors[1][0],
                           bg = self.colors[1][1],
-                          text = self.text[0])
-      if(self.debug != None):
-        self.debug.info("Toggle set to "+self.text[0])
-    else:
-      self.widget.config( fg = self.colors[0][0],
-                          bg = self.colors[0][1],
                           text = self.text[1])
       if(self.debug != None):
         self.debug.info("Toggle set to "+self.text[1])
+    else:
+      self.widget.config( fg = self.colors[0][0],
+                          bg = self.colors[0][1],
+                          text = self.text[0])
+      if(self.debug != None):
+        self.debug.info("Toggle set to "+self.text[0])
 
 # creates thumbnail / image import widget
 class Thumbnail():
@@ -777,7 +777,7 @@ class Slicer():
   __full_image__: Image.Image | None = None
   __sliced_images__: tuple[Image.Image,...] = ()
   __index__: int = 0
-  __pattern__: Literal['row major', 'col major', 'snake'] = 'snake'
+  __pattern__: Literal['row major', 'col major', 'snake']
   __horizontal_slices__: int = 0
   __vertical_slices__: int = 0
   __grid_size__: tuple[int,int] = (0,0)
@@ -890,120 +890,6 @@ class Slicer():
                                                             self.__horizontal_slices__,
                                                             self.__vertical_slices__)
 
-''' temporary deprecate
-# type class for an object to be contained within a smart area
-# contrains the cinstructor, destructor, and status of the object (true = instantiated)
-class Smart_Object():
-  __constructor__: Callable
-  __destructor__: Callable
-  __status__: bool
-  
-  def __init__(self, constructor: Callable, destructor: Callable):
-    self.__constructor__ = constructor
-    self.__destructor__ = destructor
-    self.__status__ = False
-
-  def construct(self):
-    if(self.__status__ == True):
-      raise Exception("Tried to construct object that is already constructed")
-    self.__constructor__()
-    self.__status__ = True
-    
-  def destruct(self):
-    if(self.__status__ == False):
-      raise Exception("Tried to destruct object that was not constructed")
-    self.__destructor__()
-    self.__status__ = False
-    
-  def status(self) -> bool:
-    return self.__status__
-
-# list of smart objects
-# will construct and destruct all objects in the list
-class Smart_List():
-    __widgets__: list[Smart_Object]
-    __status__: bool = False
-    
-    def __init__(self):
-      self.__widgets__ = []
-    
-    def construct(self):
-      if(self.__status__ == True):
-        raise Exception("Tried to construct list that is already constructed")
-      for obj in self.__widgets__:
-        obj.construct()
-      self.__status__ = True
-        
-    def destruct(self):
-      if(self.__status__ == False):
-        raise Exception("Tried to destruct list that was not constructed")
-      for obj in self.__widgets__:
-        obj.destruct()
-      self.__status__ = False
-      
-    def status(self) -> bool:
-      return self.__status__
-    
-    def add(self, constructor: Callable, destructor: Callable):
-      if(self.__status__ == True):
-        raise Exception("Tried to add object to a constructed list, deconstruct first")
-      self.__widgets__.append(Smart_Object(constructor, destructor))
-  #endregion
-
-# Class that controls sets of widgets for an area of the UI
-# User can add as many widgets to as many sets as they want
-# upon calling next, the current set will be deconstructed and the next set will be constructed
-class Smart_Area():
-  # list of smart objects lists
-  __widgets__: list[Smart_List]
-  # current index of the list
-  __index__: int = 0
-  # debug widget
-  debug: Debug | None
-  #endregion
-  
-  def __init__( self,
-                debug: Debug | None = None):
-    self.__widgets__ = []
-    self.debug = debug
-  
-  def add(self, set: int, constructor: Callable, destructor: Callable):
-    if(set < 0):
-      raise Exception("only positive set numbers are allowed")
-    if(set > len(self.__widgets__)):
-      raise Exception("set numbers must be consecutive, please add set", len(self.__widgets__), "first")
-    if(set == len(self.__widgets__)):
-      self.__widgets__.append(Smart_List())
-    self.__widgets__[set].add(constructor, destructor)
-  
-  def init(self, set: int=0):
-    self.__widgets__[set].construct()
-    self.__index__ = set
-  
-  def next(self):
-    self.__widgets__[self.__index__].destruct()
-    self.__index__ += 1
-    if(self.__index__ >= len(self.__widgets__)):
-      self.__index__ = 0
-    self.__widgets__[self.__index__].construct()
-
-  def prev(self):
-    self.__widgets__[self.__index__].destruct()
-    self.__index__ -= 1
-    if(self.__index__ < 0):
-      self.__index__ = len(self.__widgets__)-1
-    self.__widgets__[self.__index__].construct()
-    
-  def jump(self, set: int):
-    self.__widgets__[self.__index__].destruct()
-    self.__index__ = set
-    self.__widgets__[self.__index__].construct()
-
-  def index(self) -> int:
-    return self.__index__
-
-'''
-
 # swaps around groups of widgets
 # Requires a GUI controller
 # hides widgets with grid_remove()
@@ -1011,21 +897,26 @@ class Smart_Area():
   # gui controller to query widgets from
   __gui__: GUI_Controller
   # list of widget lists
-  __widgets__: list[list[GUI_Controller.gui_widgets]] = []
+  __widgets__: list[list[GUI_Controller.gui_widgets]]
   # list of special fucntions to call when switching groups
   # show first, hide second (show, hide)
-  __funcs__: list[tuple[Callable | None, Callable | None]] = []
+  __funcs__: list[tuple[Callable | None, Callable | None]]
   # current index of the list
   __index__: int = 0
   # debug widget
   debug: Debug | None
+  name: str | None
   #endregion
   
   def __init__( self,
                 gui: GUI_Controller,
-                debug: Debug | None = None):
+                debug: Debug | None = None,
+                name: str | None = None):
+    self.__widgets__ = []
+    self.__funcs__ = []
     self.__gui__ = gui
     self.debug = debug
+    self.name = name
     
   def __hide__(self, group: int, func_first: bool = True):
     if(func_first and self.__funcs__[group][1] != None):
@@ -1059,8 +950,11 @@ class Smart_Area():
     if(group < 0):
       raise Exception("only positive group numbers are allowed")
     elif(group > len(self.__widgets__)):
-      if(self.debug != None):      
-        self.debug.warn("non-consecutive group number, added filler groups")
+      if(self.debug != None):
+        msg: str = "non-consecutive group number, added filler groups"
+        if(self.name != None):
+          msg = self.name+" "+msg
+        self.debug.warn(msg)
       for i in range(len(self.__widgets__), group+1):
         self.__widgets__.append([])
         self.__funcs__.append((None, None))
@@ -1073,7 +967,10 @@ class Smart_Area():
       widget: GUI_Controller.gui_widgets | None = self.__gui__.get_widget(name)
       if(widget == None):
         if(self.debug != None):
-          self.debug.error("Tried to add non-existent widget \""+str(group)+"\" to group "+str(group))
+          msg: str = "Tried to add non-existent widget \""+name+"\" to group "+str(group)
+          if(self.name != None):
+            msg = self.name+" "+msg
+          self.debug.error(msg)
       else:
         self.__widgets__[group].append(widget)
     
@@ -1084,7 +981,10 @@ class Smart_Area():
   def add_func(self, group: int, show: Callable | None = None, hide: Callable | None = None):
     if(group < 0 or group >= len(self.__funcs__)):
       if(self.debug != None):
-        self.debug.error("can only add special functions to existing groups, add an empty group first")
+        msg: str = "can only add special functions to existing groups, add an empty group first"
+        if(self.name != None):
+          msg = self.name+" "+msg
+        self.debug.error(msg)
       return
     self.__funcs__[group] = (show, hide)
     
@@ -1093,7 +993,10 @@ class Smart_Area():
   # if order matters, toggle the func_first parameter (show, hide)
   def jump(self, group: int, func_first: tuple[bool,bool] = (True, True)):
     if(self.debug != None):
-      self.debug.info("switched from group "+str(self.__index__)+" to "+str(group % len(self.__widgets__)))
+      msg: str = "switched from group "+str(self.__index__)+" to "+str(group % len(self.__widgets__))
+      if(self.name != None):
+        msg = self.name+" "+msg
+      self.debug.info(msg)
     self.__hide__(self.__index__, func_first[1])
     self.__index__ = group % len(self.__widgets__)
     self.__show__(self.__index__, func_first[0])
