@@ -26,29 +26,8 @@ from litho_gui_lib import *
 # - use a paste command to put the preview on a black background to represent the actual exposure. 
 
 VERSION: str = "1.4.4"
-''' Patch Notes
 
-**Major**
-- Implemented slicer and stepping
- - The main slicing code is a standalone function in litho_img_lib, it's **very** feature rich and robust
- - implemented a class to allow for easier stepping through the slices
- - integrated this with the rest of the GUI, this was _very_ hard
-**Minor**
-- Keyboard Input for moving stage
- - Can now move stage with the arrow keys: up/down/left/right for xy and ctrl or shift + up/down for z axis
-- Yet another large layout redesign
-- backend refactoring
-- abort button is dynamic
-- added a progress bar for the total progress of the pattern
-- Increased UI feedback to user to reduce learning curve
-
-**For V2.0.0**
-- Integrate camera feed
-- Integrate CV
-- Integrate stage
-
-'''
-
+#region: setup
 THUMBNAIL_SIZE: tuple[int,int] = (160,90)
 CHIN_SIZE: int = 400
 GUI: GUI_Controller = GUI_Controller(grid_size = (14,10),
@@ -60,7 +39,6 @@ SPACER_SIZE: int = GUI.window_size[0]//(GUI.grid_size[1]*5)
 # Debugger
 debug: Debug = Debug(root=GUI.root)
 GUI.add_widget("debug", debug)
-
 
 slicer: Slicer = Slicer(tiling_pattern='snake',
                         debug=debug)
@@ -113,6 +91,8 @@ def prep_pattern(input_image: Image.Image, thumb: Thumbnail | None = None) -> Im
   
   update_thumb()
   return image
+
+#endregion
 
 #region: Camera and progress bars
 camera_placeholder = rasterize(Image.new('RGB', (GUI.window_size[0],(GUI.window_size[0]*9)//16), (0,0,0)))
@@ -397,22 +377,21 @@ GUI.root.grid_columnconfigure(2, minsize=SPACER_SIZE)
 #region: Stage and Fine Adjustment Smart Area
 
 #region: Smart Area
-center_display: Literal['stage', 'fine'] = 'stage'
-
-stage_row: int = 4
+stage_row: int = 3
 stage_col: int = 3
 #create smart area for stage and fine adjustment
 center_area: Smart_Area = Smart_Area(
   gui=GUI,
-  debug=debug)
+  debug=debug,
+  name="center area")
 #create button to toggle between stage and fine adjustment
 center_area_toggle: Toggle = Toggle(
   root=GUI.root,
-  text=("Fine Adjustment Controls","Stage Controls"),
+  text=("Stage Position", "Fine Adjustment"),
   colors=(("black","white"),("black","light blue")),
   func=lambda: center_area.next(),
   debug=debug)
-center_area_toggle.grid(row = stage_row-1,
+center_area_toggle.grid(row = stage_row,
                         col = stage_col,
                         colspan = 3)
 GUI.add_widget("center_area_toggle", center_area_toggle)
@@ -431,19 +410,6 @@ def step_update(axis: Literal['-x','+x','-y','+y','-z','+z']):
   stage.step(axis)
 
 #region: Stage Position
-stage_position_text: Label = Label(
-  GUI.root,
-  text = "Stage Position",
-  justify = 'center',
-  anchor = 'center'
-)
-stage_position_text.grid(
-  row = stage_row,
-  column = stage_col,
-  columnspan = 3,
-  sticky='nesw'
-)
-GUI.add_widget("stage_position_text", stage_position_text)
 
 set_coords_button: Button = Button(
   GUI.root,
@@ -491,7 +457,7 @@ step_size_row: int = 5
 
 step_size_text: Label = Label(
   GUI.root,
-  text = "Step Size",
+  text = "Stage Step Size",
   justify = 'center',
   anchor = 'center'
 )
@@ -625,8 +591,7 @@ def unbind_stage_controls() -> None:
 
 #endregion
 
-center_area.add(0,["stage_position_text",
-                   "set_coords_button",
+center_area.add(0,["set_coords_button",
                    "x_intput",
                    "y_intput",
                    "z_intput",
@@ -655,19 +620,6 @@ def fine_step_update(axis: Literal['-x','+x','-y','+y','-z','+z']):
   fine_adjust.step(axis)
 
 #region: Fine Adjustment Position
-fine_position_text: Label = Label(
-  GUI.root,
-  text = "Fine Adjustment Position",
-  justify = 'center',
-  anchor = 'center'
-)
-fine_position_text.grid(
-  row = stage_row,
-  column = stage_col,
-  columnspan = 3,
-  sticky='nesw')
-GUI.add_widget("fine_position_text", fine_position_text)
-
 set_adjustment_button: Button = Button(
   GUI.root,
   text = 'Set Fine Adjustment',
@@ -847,8 +799,7 @@ def unbind_fine_controls() -> None:
   
 #endregion
 
-center_area.add(1,["fine_position_text",
-                    "set_adjustment_button",
+center_area.add(1,["set_adjustment_button",
                     "fine_x_intput",
                     "fine_y_intput",
                     "fine_theta_intput",
@@ -865,35 +816,39 @@ center_area.add(1,["fine_position_text",
 center_area.add_func(1,bind_fine_controls, unbind_fine_controls)
 #endregion
 
-center_area.add(1,[])
+center_area.jump(0)
 
 #endregion
 
-center_area.jump(0)
-
 GUI.root.grid_columnconfigure(6, minsize=SPACER_SIZE)
 
-#region: Patterning Area
+#region: patterning and options Smart Area
+
+#region: smart area
 pattern_row: int = 3
 pattern_col: int = 7
+#create smart area for patterning and options
+right_area: Smart_Area = Smart_Area(
+  gui=GUI,
+  debug=debug,
+  name="right area")
+#create button to toggle between patterning and options
+patterning_area_toggle: Toggle = Toggle(
+  root=GUI.root,
+  text=("Options","Patterning"),
+  colors=(("black","white"),("white","red")),
+  func=lambda: right_area.next(),
+  debug=debug)
+patterning_area_toggle.grid(row = pattern_row,
+                        col = pattern_col,
+                        colspan = 3)
+GUI.add_widget("patterning_area_toggle", patterning_area_toggle)
+
+#endregion
 
 #region: Options
 options_row: int = 0
 options_col: int = 0
-
-options_text: Label = Label(
-  GUI.root,
-  text = "Options",
-  justify = 'center',
-  anchor = 'center'
-)
-options_text.grid(
-  row = pattern_row+options_row,
-  column = pattern_col+options_col,
-  columnspan = 3,
-  sticky='nesw'
-)
-GUI.add_widget("options_text", options_text)
 
 #region: duration
 duration_text: Label = Label(
@@ -979,9 +934,10 @@ FF_strength_intput.grid(pattern_row+options_row+3,pattern_col+options_col+1)
 GUI.add_widget("FF_strength_intput", FF_strength_intput)
 
 flatfield_toggle: Toggle = Toggle(root=GUI.root,
-                                  text=("Using Flatfield","NOT Using Flatfield"),
+                                  text=("NOT Using Flatfield","Using Flatfield"),
                                   debug=debug)
 flatfield_toggle.grid(pattern_row+options_row+3,pattern_col+options_col+2)
+GUI.add_widget("flatfield_toggle", flatfield_toggle)
 #endregion
 
 #region: posterize
@@ -1010,26 +966,76 @@ post_strength_intput.grid(pattern_row+options_row+4,pattern_col+options_col+1)
 GUI.add_widget("post_strength_intput", post_strength_intput)
 
 posterize_toggle: Toggle = Toggle(root=GUI.root,
-                                  text=("Now Posterizing","NOT Posterizing"),
+                                  text=("NOT Posterizing","Now Posterizing"),
                                   debug=debug)
 posterize_toggle.grid(pattern_row+options_row+4,pattern_col+options_col+2)
-#endregion
+GUI.add_widget("posterize_toggle", posterize_toggle)
 
 #endregion
+
+#region: fine adjustment
+fine_adjustment_text: Label = Label(
+  GUI.root,
+  text = "Fine Adjustment Border (%)",
+  justify = 'center',
+  anchor = 'center'
+)
+fine_adjustment_text.grid(
+  row = pattern_row+options_row+5,
+  column = pattern_col+options_col,
+  sticky='nesw'
+)
+GUI.add_widget("fine_adjustment_text", fine_adjustment_text)
+
+border_size_intput: Intput = Intput(
+  root=GUI.root,
+  name="Border Size",
+  default=0,
+  min=0,
+  max=100,
+  debug=debug
+)
+border_size_intput.grid(pattern_row+options_row+5,pattern_col+options_col+1)
+GUI.add_widget("border_size_intput", border_size_intput)
+
+fine_adjustment_toggle: Toggle = Toggle(root=GUI.root,
+                                        text=("NOT Using Fine Adjustment","Using Fine Adjustment"),
+                                        debug=debug)
+fine_adjustment_toggle.grid(pattern_row+options_row+5,pattern_col+options_col+2)
+GUI.add_widget("fine_adjustment_toggle", fine_adjustment_toggle)
+#endregion
+
+right_area.add(0,["duration_text",
+                        "duration_intput",
+                        "slicer_horiz_text",
+                        "slicer_horiz_intput",
+                        "slicer_vert_intput",
+                        "FF_strength_text",
+                        "FF_strength_intput",
+                        "flatfield_toggle",
+                        "post_strength_text",
+                        "post_strength_intput",
+                        "posterize_toggle",
+                        "fine_adjustment_text",
+                        "border_size_intput",
+                        "fine_adjustment_toggle"])
+
+#endregion
+
+#region: Patterning Area
 
 #region: Current Tile
-current_tile_row = 5
+current_tile_row = 1
 current_tile_col = 0
 
 Current_tile_text: Label = Label(
   GUI.root,
   text = "Next Pattern Image",
-  
 )
 Current_tile_text.grid(
   row = pattern_row+current_tile_row,
   column = pattern_col+current_tile_col,
-  columnspan = 2,
+  columnspan = 3,
   sticky='nesw'
 )
 GUI.add_widget("Current_tile_text", Current_tile_text)
@@ -1045,15 +1051,20 @@ next_tile_image.grid(
   row = pattern_row+current_tile_row+1,
   column = pattern_col+current_tile_col,
   rowspan=4,
-  columnspan=2,
+  columnspan=3,
   sticky='nesw'
 )
+GUI.add_widget("next_tile_image", next_tile_image)
 
 #endregion
 
 # region: Danger Buttons
-buttons_row = 5
-buttons_col = 2
+buttons_row = 6
+buttons_col = 0
+pattern_rowspan = 4
+pattern_colspan = 2
+clear_rowspan = 4
+clear_colspan = 1
 
 pattern_status: Literal['idle','patterning', 'aborting'] = 'idle'
 def change_patterning_status(new_status: Literal['idle','patterning', 'aborting']) -> None:
@@ -1073,7 +1084,8 @@ def change_patterning_status(new_status: Literal['idle','patterning', 'aborting'
             bg='red',
             fg='white',
             command=lambda: change_patterning_status('aborting'))
-          clear_button.grid(rowspan=5)
+          clear_button.grid(rowspan=pattern_rowspan if pattern_rowspan == clear_rowspan else pattern_rowspan+clear_rowspan,
+                            columnspan=pattern_colspan if pattern_colspan == clear_colspan else pattern_colspan+clear_colspan)
           # disable pattern button
           pattern_button_timed.config(
             command=lambda: None)
@@ -1091,7 +1103,7 @@ def change_patterning_status(new_status: Literal['idle','patterning', 'aborting'
             bg='black',
             fg='white',
             command=clear_button_func)
-          clear_button.grid(rowspan=1)
+          clear_button.grid(rowspan=clear_rowspan, columnspan=clear_colspan)
           # re-enable pattern button
           pattern_button_timed.config(
             command=begin_patterning)
@@ -1112,7 +1124,7 @@ def change_patterning_status(new_status: Literal['idle','patterning', 'aborting'
             bg='black',
             fg='white',
             command=clear_button_func)
-          clear_button.grid(rowspan=1)
+          clear_button.grid(rowspan=clear_rowspan, columnspan=clear_colspan)
           # re-enable pattern button
           pattern_button_timed.config(
             command=begin_patterning)
@@ -1125,8 +1137,14 @@ def change_patterning_status(new_status: Literal['idle','patterning', 'aborting'
 # big red danger button
 tile_number: int = 0
 def begin_patterning():
-  def update_next_tile_preview():
-    preview: Image.Image | None = slicer.peek()
+  def update_next_tile_preview(mode: Literal['current','peek']='peek'):
+    #get either current image, or peek ahead to next image
+    preview: Image.Image | None
+    if(mode=='peek'):
+      preview = slicer.peek()
+    else:
+      preview = slicer.image()
+    #if at end of slicer, use blank image
     if(preview == None):
       preview = Image.new('RGB', THUMBNAIL_SIZE)
     else:
@@ -1134,6 +1152,7 @@ def begin_patterning():
     raster = rasterize(preview.resize(fit_image(preview, THUMBNAIL_SIZE), Image.Resampling.LANCZOS))
     next_tile_image.config(image=raster)
     next_tile_image.image = raster
+  
   global pattern_status
   debug.info("Slicing pattern...")
   slicer.update(image=pattern_thumb.image,
@@ -1185,7 +1204,7 @@ def begin_patterning():
   # restart slicer
   slicer.restart()
   # update next tile preview
-  update_next_tile_preview()
+  update_next_tile_preview(mode='current')
   # TODO remove once camera is implemented
   camera.config(image=camera_placeholder)
   camera.image = camera_placeholder
@@ -1205,9 +1224,10 @@ pattern_button_timed: Button = Button(
   bg = 'red',
   fg = 'white')
 pattern_button_timed.grid(
-  row = pattern_row+buttons_row+1,
-  column = pattern_col+buttons_col,
-  rowspan=4,
+  row = pattern_row+buttons_row,
+  column = pattern_col+buttons_col+1,
+  columnspan=pattern_colspan,
+  rowspan=pattern_rowspan,
   sticky='nesw')
 GUI.add_widget("pattern_button_timed", pattern_button_timed)
 
@@ -1229,11 +1249,21 @@ clear_button: Button = Button(
 clear_button.grid(
   row = pattern_row+buttons_row,
   column = pattern_col+buttons_col,
-  rowspan=1,
+  columnspan=clear_colspan,
+  rowspan=clear_rowspan,
   sticky='nesw')
 GUI.add_widget("clear_button", clear_button)
 
 #endregion
+
+right_area.add(1,["Current_tile_text",
+                  "next_tile_image",
+                  "pattern_button_timed",
+                  "clear_button"])
+
+#endregion
+
+right_area.jump(0)
 
 #endregion
 
