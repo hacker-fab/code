@@ -43,14 +43,19 @@ GUI.add_widget("debug", debug)
 slicer: Slicer = Slicer(tiling_pattern='snake',
                         debug=debug)
 
+#returns a color channel toggled image
+#uses patterning options to toggle color channels
+#purely a convenience function
+def toggle_pattern_channels(input_image: Image.Image) -> Image.Image:
+  return toggle_channels(input_image,
+                         pattern_red_cycle.state,
+                         pattern_green_cycle.state,
+                         pattern_blue_cycle.state)
+
 #returns modified version of input image, optionally updates thumbnail with image
-def prep_pattern(input_image: Image.Image, thumb: Thumbnail | None = None) -> Image.Image:
+def prep_pattern(input_image: Image.Image, thumb: Thumbnail | None = None, toggle_colors: bool = False) -> Image.Image:
   image = input_image.copy()
-  def update_thumb() -> None:
-    if(thumb != None):
-      thumb.temp_image = image
-      thumb.update_thumbnail(image)
-      
+  
   # posterizeing
   if(posterize_cycle.state and ((not (image.mode == 'L' or image.mode == 'LA')) or post_strength_intput.changed())):
     # posterizing enabled, and image isn't poterized
@@ -89,9 +94,20 @@ def prep_pattern(input_image: Image.Image, thumb: Thumbnail | None = None) -> Im
     debug.info("Resizing...")
     image = image.resize(fit_image(image, GUI.proj.size()), Image.Resampling.LANCZOS)
   
-  update_thumb()
+  # update thumbnail
+  # MUST be before color channel toggling
+  if(thumb != None):
+      thumb.temp_image = image
+      thumb.update_thumbnail(image)
+  
+  # color channel toggling
+  if(toggle_colors):
+    debug.info("Toggling color channels...")
+    image = toggle_pattern_channels(image)
+    if(thumb != None):
+      thumb.update_thumbnail(image)
+  
   return image
-
 #endregion
 
 #region: Camera and progress bars
@@ -239,7 +255,9 @@ def pattern_import_func() -> None:
                 horizontal_tiles=slicer_horiz_intput.get(),
                 vertical_tiles=slicer_vert_intput.get())
   pattern_thumb.temp_image = prep_pattern(slicer.image())
-  raster = rasterize(pattern_thumb.temp_image.resize(fit_image(pattern_thumb.temp_image, THUMBNAIL_SIZE), Image.Resampling.LANCZOS))
+  image: Image.Image = toggle_pattern_channels(pattern_thumb.temp_image)
+  pattern_thumb.update_thumbnail(image)
+  raster = rasterize(image.resize(fit_image(image, THUMBNAIL_SIZE), Image.Resampling.LANCZOS))
   next_tile_image.config(image=raster)
   next_tile_image.image = raster
   
@@ -255,8 +273,10 @@ GUI.add_widget("pattern_thumb", pattern_thumb)
 def show_pattern_fixed() -> None:
   highlight_button(pattern_button_fixed)
   pattern_thumb.temp_image = prep_pattern(pattern_thumb.temp_image)
+  image: Image.Image = toggle_pattern_channels(pattern_thumb.temp_image)
+  pattern_thumb.update_thumbnail(image)
   debug.info("Showing Pattern")
-  GUI.proj.show(pattern_thumb.temp_image)
+  GUI.proj.show(image)
 pattern_button_fixed: Button = Button(
   GUI.root,
   text = 'Show Pattern',
@@ -329,8 +349,16 @@ def show_red_focus() -> None:
   if(image.size != fit_image(image, GUI.proj.size())):
     debug.info("Resizing image for projection...")
     red_focus_thumb.temp_image = image.resize(fit_image(image, GUI.proj.size()), Image.Resampling.LANCZOS)
+  # color channel toggling
+  if(not (uv_focus_red_cycle.state and uv_focus_green_cycle.state and uv_focus_blue_cycle.state)):
+    debug.info("Toggling color channels...")
+    image: Image.Image = toggle_channels (red_focus_thumb.temp_image,
+                                          red_focus_red_cycle.state,
+                                          red_focus_green_cycle.state,
+                                          red_focus_blue_cycle.state)
+    red_focus_thumb.update_thumbnail(image)
   debug.info("Showing red focus image")
-  GUI.proj.show(red_focus_thumb.temp_image)
+  GUI.proj.show(image)
 red_focus_button: Button = Button(
   GUI.root,
   text = 'Show Red Focus',
@@ -356,8 +384,16 @@ def show_uv_focus() -> None:
   if(image.size != fit_image(image, GUI.proj.size())):
     debug.info("Resizing image for projection...")
     uv_focus_thumb.temp_image = image.resize(fit_image(image, GUI.proj.size()), Image.Resampling.LANCZOS)
-  debug.info("Showing uv focus image")
-  GUI.proj.show(uv_focus_thumb.temp_image)
+  # color channel toggling
+  if(not (uv_focus_red_cycle.state and uv_focus_green_cycle.state and uv_focus_blue_cycle.state)):
+    debug.info("Toggling color channels...")
+    image: Image.Image = toggle_channels (uv_focus_thumb.temp_image,
+                                          uv_focus_red_cycle.state,
+                                          uv_focus_green_cycle.state,
+                                          uv_focus_blue_cycle.state)
+    uv_focus_thumb.update_thumbnail(image)
+  debug.info("Showing UV focus image")
+  GUI.proj.show(image)
 
 uv_focus_button: Button = Button(
   GUI.root,
@@ -1304,7 +1340,7 @@ def begin_patterning():
     if(preview == None):
       preview = Image.new('RGB', THUMBNAIL_SIZE)
     else:
-      preview = prep_pattern(preview)
+      preview = prep_pattern(preview, toggle_colors=True)
     raster = rasterize(preview.resize(fit_image(preview, THUMBNAIL_SIZE), Image.Resampling.LANCZOS))
     next_tile_image.config(image=raster)
     next_tile_image.image = raster
@@ -1327,9 +1363,9 @@ def begin_patterning():
     # get patterning image
     image: Image.Image
     if(slicer.tile_count() == 1):
-      image = prep_pattern(pattern_thumb.temp_image, thumb=pattern_thumb)
+      image = prep_pattern(pattern_thumb.temp_image, thumb=pattern_thumb, toggle_colors=True)
     else:
-      image = prep_pattern(slicer.image())
+      image = prep_pattern(slicer.image(), toggle_colors=True)
     #TODO apply fine adjustment vector to image
     #TODO remove once camera is implemented
     camera_image_preview = rasterize(image.resize(fit_image(image, (GUI.window_size[0],(GUI.window_size[0]*9)//16)), Image.Resampling.LANCZOS))
