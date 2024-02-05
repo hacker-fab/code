@@ -65,8 +65,9 @@ class Debug():
   def __set_color__(self, colors: tuple[str,str]):
     self.widget.config(fg = colors[0],
                        bg = colors[1])
-    
-# creates toggle widget
+
+# [DEPRECATED]
+# Cycle class fully replaces this
 class Toggle():
   # mandatory / main fields
   widget: Button
@@ -96,7 +97,7 @@ class Toggle():
     self.debug = debug
     self.func_high = func_on_true
     self.func_low = func_on_false
-    self.func_always = func
+    self.func_always = func_always
     # create button widget
     self.widget = Button(root, command=self.toggle)
     # update to reflect default state
@@ -144,17 +145,16 @@ class Toggle():
       if(self.debug != None):
         self.debug.info("Toggle set to "+self.text[0])
 
-# creates a cycle widget
-# Similar to a toggle, but pressing cycles through a list of states
+# creates a button that cycles through states
 # each state contains: text, colors, and entering / exiting functions
 class Cycle():
   # mandatory / main fields
-  Widget: Button
+  __Widget__: Button
   state: int
   # user-inputted fields
   # tuple structure: (text, (fg, bg), (enter, exit))
   cycle_state_t = tuple[str, tuple[str,str], tuple[Callable | None, Callable | None]]
-  states: list[cycle_state_t]
+  __states__: list[cycle_state_t]
   debug: Debug | None
   func_always: Callable | None
   
@@ -165,7 +165,7 @@ class Cycle():
     self.debug = debug
     self.func_always = func_always
     self.state = 0
-    self.states = []
+    self.__states__ = []
     self.widget = Button(root, command=self.cycle)
     
   # place widget on the grid
@@ -189,31 +189,43 @@ class Cycle():
                 colors: tuple[str,str] = ("black", "white"),
                 enter: Callable | None = None,
                 exit: Callable | None = None):
-    self.states.append((text, colors, (enter, exit)))
+    self.__states__.append((text, colors, (enter, exit)))
+    # update widget cosmetics to the first state added
+    if(len(self.__states__) == 1):
+      self.widget.config( text = text,
+                          fg = colors[0],
+                          bg = colors[1])
   
   # update widget to reflect specified state
   def update(self, index: int = 0):
+    # check if index is valid
+    if(index < 0 or index >= len(self.__states__)):
+      if(self.debug != None):
+        self.debug.error("invalid cycle update target "+str(index)+" > "+str(len(self.__states__)-1))
+      return
     # call exit function of previous state
-    if(self.states[self.state][2][1] != None):
-      self.states[self.state][2][1]()
+    if(self.__states__[self.state][2][1] != None):
+      self.__states__[self.state][2][1]()
     # update state
     self.state = index
-    self.widget.config( text = self.states[index][0],
-                        fg = self.states[index][1][0],
-                        bg = self.states[index][1][1])
+    self.widget.config( text = self.__states__[index][0],
+                        fg = self.__states__[index][1][0],
+                        bg = self.__states__[index][1][1])
     if(self.debug != None):
-      self.debug.info("Cycle set to "+str(index)+": "+self.states[index][0])
+      self.debug.info("Cycle set to "+str(index)+": "+self.__states__[index][0])
     # call enter function of new state
-    if(self.states[index][2][0] != None):
-      self.states[index][2][0]()
+    if(self.__states__[index][2][0] != None):
+      self.__states__[index][2][0]()
     # call always function if specified
     if(self.func_always != None):
       self.func_always()
-  
+      
   def cycle(self):
-    self.state += 1
-    self.update(self.state % len(self.states))
-
+    if(len(self.__states__) == 0):
+      if(self.debug != None):
+        self.debug.warn("Tried to cycle with no states")
+      return
+    self.update((self.state + 1)% len(self.__states__))
 
 # creates thumbnail / image import widget
 class Thumbnail():
@@ -615,7 +627,7 @@ class TextPopup():
 # GUI controller and widget manager
 class GUI_Controller():
   # list of accepted widget types
-  gui_widgets = Union[Widget, Toggle, Thumbnail, Debug, Intput]
+  gui_widgets = Union[Widget, Toggle, Cycle, Thumbnail, Debug, Intput]
   #region: fields
   ### Internal Fields ###
   root: Tk
@@ -845,10 +857,14 @@ class Stage_Controller():
  
 # Class takes an image and slicing parameters and returns slices
 class Slicer():
+  # pattern types
+  pattern_type = Literal['snake', 'row major', 'col major']
+  pattern_list: list[Literal['snake', 'row major', 'col major']] = ['snake', 'row major', 'col major']
+  #fields
   __full_image__: Image.Image | None = None
   __sliced_images__: tuple[Image.Image,...] = ()
   __index__: int = 0
-  __pattern__: Literal['row major', 'col major', 'snake']
+  __pattern__: pattern_type
   __horizontal_slices__: int = 0
   __vertical_slices__: int = 0
   __grid_size__: tuple[int,int] = (0,0)
@@ -858,7 +874,7 @@ class Slicer():
                image: Image.Image|None = None, 
                horizontal_tiles: int = 0,
                vertical_tiles: int = 0,
-               tiling_pattern: Literal['row major', 'col major', 'snake'] = 'snake',
+               tiling_pattern: pattern_type = 'snake',
                debug: Debug | None = None):
     if(horizontal_tiles >= 0):
       self.__horizontal_slices__ = horizontal_tiles
@@ -936,7 +952,7 @@ class Slicer():
               image: Image.Image|None = None,
               horizontal_tiles: int = 0,
               vertical_tiles: int = 0,
-              tiling_pattern: Literal['row major', 'col major', 'snake'] = 'snake'):
+              tiling_pattern: pattern_type = 'snake'):
     
     reslice: bool = False
     self.__index__ = 0
@@ -955,6 +971,7 @@ class Slicer():
     
     if(self.__pattern__ != tiling_pattern):
       self.__pattern__ = tiling_pattern
+      reslice = True
       
     if(reslice and self.__full_image__ != None):
       (self.__grid_size__, self.__sliced_images__) = slice( self.__full_image__,
