@@ -25,9 +25,9 @@ from litho_gui_lib import *
 # - Add user controllable tile adjustment and continue
 # - use a paste command to put the preview on a black background to represent the actual exposure. 
 
-VERSION: str = "1.4.4"
+VERSION: str = "1.?.?"
 
-#region: setup
+#region: setup 
 THUMBNAIL_SIZE: tuple[int,int] = (160,90)
 CHIN_SIZE: int = 400
 GUI: GUI_Controller = GUI_Controller(grid_size = (14,11),
@@ -52,11 +52,11 @@ def prep_pattern(input_image: Image.Image, thumb: Thumbnail | None = None) -> Im
       thumb.update_thumbnail(image)
       
   # posterizeing
-  if(posterize_toggle.state and ((not (image.mode == 'L' or image.mode == 'LA')) or post_strength_intput.changed())):
+  if(posterize_cycle.state and ((not (image.mode == 'L' or image.mode == 'LA')) or post_strength_intput.changed())):
     # posterizing enabled, and image isn't poterized
     debug.info("Posterizing...")
     image = posterize(image, round((post_strength_intput.get()*255)/100))
-  elif(not posterize_toggle.state and (image.mode == 'L' or image.mode == 'LA') and thumb != None):
+  elif(not posterize_cycle.state and (image.mode == 'L' or image.mode == 'LA') and thumb != None):
     # posterizing disabled, but image is posterized
       debug.info("Resetting Posterizing...")
       thumb.temp_image = thumb.image
@@ -64,7 +64,7 @@ def prep_pattern(input_image: Image.Image, thumb: Thumbnail | None = None) -> Im
       image = thumb.image
   
   # flatfield correction
-  if(flatfield_toggle.state and (image.mode == 'L' or image.mode == 'RGB' or 
+  if(flatfield_cycle.state and (image.mode == 'L' or image.mode == 'RGB' or 
      FF_strength_intput.changed())):
     debug.info("Applying flatfield corretion...")
     alpha_channel = convert_to_alpha_channel(flatfield_thumb.image,
@@ -72,7 +72,7 @@ def prep_pattern(input_image: Image.Image, thumb: Thumbnail | None = None) -> Im
                                              target_size=image.size,
                                              downsample_target=540)
     image.putalpha(alpha_channel)
-  elif(not flatfield_toggle.state):
+  elif(not flatfield_cycle.state):
     if(image.mode == 'RGBA' and thumb != None):
       debug.info("Removing flatfield corretion...")
       thumb.temp_image = RGBA_to_RGB(thumb.temp_image)
@@ -316,11 +316,11 @@ def show_red_focus() -> None:
   highlight_button(red_focus_button)
   # posterizeing
   image: Image.Image = red_focus_thumb.temp_image
-  if(posterize_toggle.state and (image.mode != 'L' or post_strength_intput.changed())):
+  if(posterize_cycle.state and (image.mode != 'L' or post_strength_intput.changed())):
     debug.info("Posterizing image...")
     red_focus_thumb.temp_image = posterize(red_focus_thumb.temp_image, round((post_strength_intput.get()*255)/100))
     red_focus_thumb.update_thumbnail(red_focus_thumb.temp_image)
-  elif(not posterize_toggle.state and image.mode == 'L'):
+  elif(not posterize_cycle.state and image.mode == 'L'):
     debug.info("Resetting image...")
     red_focus_thumb.temp_image = red_focus_thumb.image
     red_focus_thumb.update_thumbnail(red_focus_thumb.temp_image)
@@ -385,16 +385,19 @@ center_area: Smart_Area = Smart_Area(
   debug=debug,
   name="center area")
 #create button to toggle between stage and fine adjustment
-center_area_toggle: Toggle = Toggle(
+center_area_cycle: Cycle = Cycle(
   root=GUI.root,
-  text=("Stage Position", "Fine Adjustment"),
-  colors=(("black","white"),("black","light blue")),
-  func=lambda: center_area.next(),
   debug=debug)
-center_area_toggle.grid(row = stage_row,
+center_area_cycle.add_state(text = "Stage Position",
+                            colors = ("black","white"),
+                            enter = lambda: center_area.jump(0))
+center_area_cycle.add_state(text = "Fine Adjustment",
+                            colors = ("black","light blue"),
+                            enter = lambda: center_area.jump(1))
+center_area_cycle.grid(row = stage_row,
                         col = stage_col,
                         colspan = 3)
-GUI.add_widget("center_area_toggle", center_area_toggle)
+GUI.add_widget("center_area_cycle", center_area_cycle)
 
 #endregion
 
@@ -838,16 +841,19 @@ right_area: Smart_Area = Smart_Area(
   debug=debug,
   name="right area")
 #create button to toggle between patterning and options
-patterning_area_toggle: Toggle = Toggle(
+patterning_area_cycle: Cycle = Cycle(
   root=GUI.root,
-  text=("Options","Patterning"),
-  colors=(("black","white"),("white","red")),
-  func=lambda: right_area.next(),
   debug=debug)
-patterning_area_toggle.grid(row = pattern_row,
+patterning_area_cycle.add_state(text = "Options",
+                                colors = ("black","white"),
+                                enter = lambda: right_area.jump(0))
+patterning_area_cycle.add_state(text = "Patterning",
+                                colors = ("white","red"),
+                                enter = lambda: right_area.jump(1))
+patterning_area_cycle.grid(row = pattern_row,
                         col = pattern_col,
                         colspan = 4)
-GUI.add_widget("patterning_area_toggle", patterning_area_toggle)
+GUI.add_widget("patterning_area_cycle", patterning_area_cycle)
 
 #endregion
 
@@ -859,8 +865,8 @@ options_col: int = 0
 duration_text: Label = Label(
   GUI.root,
   text = "Exposure Time (ms)",
-  justify = 'center',
-  anchor = 'center'
+  justify = 'left',
+  anchor = 'w'
 )
 duration_text.grid(
   row = pattern_row+options_row+1,
@@ -884,7 +890,9 @@ GUI.add_widget("duration_intput", duration_intput)
 
 slicer_horiz_text: Label = Label(
   GUI.root,
-  text = "Tiles (horiz, vert)"
+  text = "Tiles (horiz, vert)",
+  justify = 'left',
+  anchor = 'w'
 )
 slicer_horiz_text.grid(
   row = pattern_row+options_row+2,
@@ -913,21 +921,26 @@ slicer_vert_intput: Intput = Intput(
 slicer_vert_intput.grid(pattern_row+options_row+2,pattern_col+options_col+2)
 GUI.add_widget("slicer_vert_intput", slicer_vert_intput)
 
-slicer_pattern_button: Button = Button(
-  GUI.root,
-  
+slicer_pattern_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+slicer_pattern_cycle.add_state(text = "Snake")
+slicer_pattern_cycle.add_state(text = "Row Major")
+slicer_pattern_cycle.add_state(text = "Col Major")
+slicer_pattern_cycle.grid(pattern_row+options_row+2,pattern_col+options_col+3)
+GUI.add_widget("slicer_pattern_cycle", slicer_pattern_cycle)
+
 #endregion
 
 #region: flatfield
 FF_strength_text: Label = Label(
   GUI.root,
   text = "Flatfield Strength (%)",
-  justify = 'center',
-  anchor = 'center'
+  justify = 'left',
+  anchor = 'w'
 )
 FF_strength_text.grid(
   row = pattern_row+options_row+3,
   column = pattern_col+options_col,
+  columnspan=2,
   sticky='nesw'
 )
 GUI.add_widget("FF_strength_text", FF_strength_text)
@@ -939,26 +952,27 @@ FF_strength_intput: Intput = Intput(
   min = 0,
   max = 100,
   debug=debug)
-FF_strength_intput.grid(pattern_row+options_row+3,pattern_col+options_col+1)
+FF_strength_intput.grid(pattern_row+options_row+3,pattern_col+options_col+2)
 GUI.add_widget("FF_strength_intput", FF_strength_intput)
 
-flatfield_toggle: Toggle = Toggle(root=GUI.root,
-                                  text=("NOT Using Flatfield","Using Flatfield"),
-                                  debug=debug)
-flatfield_toggle.grid(pattern_row+options_row+3,pattern_col+options_col+2)
-GUI.add_widget("flatfield_toggle", flatfield_toggle)
+flatfield_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+flatfield_cycle.add_state(text = "NOT Using Flatfield")
+flatfield_cycle.add_state(text = "Using Flatfield")
+flatfield_cycle.grid(pattern_row+options_row+3,pattern_col+options_col+3)
+GUI.add_widget("flatfield_cycle", flatfield_cycle)
 #endregion
 
 #region: posterize
 post_strength_text: Label = Label(
   GUI.root,
   text = "Posterize Cutoff (%)",
-  justify = 'center',
-  anchor = 'center'
+  justify = 'left',
+  anchor = 'w'
 )
 post_strength_text.grid(
   row = pattern_row+options_row+4,
   column = pattern_col+options_col,
+  columnspan=2,
   sticky='nesw'
 )
 GUI.add_widget("post_strength_text", post_strength_text)
@@ -971,14 +985,14 @@ post_strength_intput: Intput = Intput(
   max=100,
   debug=debug
 )
-post_strength_intput.grid(pattern_row+options_row+4,pattern_col+options_col+1)
+post_strength_intput.grid(pattern_row+options_row+4,pattern_col+options_col+2)
 GUI.add_widget("post_strength_intput", post_strength_intput)
 
-posterize_toggle: Toggle = Toggle(root=GUI.root,
-                                  text=("NOT Posterizing","Now Posterizing"),
-                                  debug=debug)
-posterize_toggle.grid(pattern_row+options_row+4,pattern_col+options_col+2)
-GUI.add_widget("posterize_toggle", posterize_toggle)
+posterize_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+posterize_cycle.add_state(text = "NOT Posterizing")
+posterize_cycle.add_state(text = "Now Posterizing")
+posterize_cycle.grid(pattern_row+options_row+4,pattern_col+options_col+3)
+GUI.add_widget("posterize_cycle", posterize_cycle)
 
 #endregion
 
@@ -986,12 +1000,13 @@ GUI.add_widget("posterize_toggle", posterize_toggle)
 fine_adjustment_text: Label = Label(
   GUI.root,
   text = "Fine Adjustment Border (%)",
-  justify = 'center',
-  anchor = 'center'
+  justify = 'left',
+  anchor = 'w'
 )
 fine_adjustment_text.grid(
   row = pattern_row+options_row+5,
   column = pattern_col+options_col,
+  columnspan=2,
   sticky='nesw'
 )
 GUI.add_widget("fine_adjustment_text", fine_adjustment_text)
@@ -1004,14 +1019,125 @@ border_size_intput: Intput = Intput(
   max=100,
   debug=debug
 )
-border_size_intput.grid(pattern_row+options_row+5,pattern_col+options_col+1)
+border_size_intput.grid(pattern_row+options_row+5,pattern_col+options_col+2)
 GUI.add_widget("border_size_intput", border_size_intput)
 
-fine_adjustment_toggle: Toggle = Toggle(root=GUI.root,
-                                        text=("NOT Using Fine Adjustment","Using Fine Adjustment"),
-                                        debug=debug)
-fine_adjustment_toggle.grid(pattern_row+options_row+5,pattern_col+options_col+2)
-GUI.add_widget("fine_adjustment_toggle", fine_adjustment_toggle)
+fine_adjustment_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+fine_adjustment_cycle.add_state(text = "NOT Using Fine Adjustment")
+fine_adjustment_cycle.add_state(text = "Using Fine Adjustment")
+fine_adjustment_cycle.grid(pattern_row+options_row+5,pattern_col+options_col+3)
+GUI.add_widget("fine_adjustment_cycle", fine_adjustment_cycle)
+#endregion
+
+#region: pattern RGB
+pattern_rgb_text: Label = Label(
+  GUI.root,
+  text = "Pattern Channels",
+  justify = 'left',
+  anchor = 'w'
+)
+pattern_rgb_text.grid(
+  row = pattern_row+options_row+6,
+  column = pattern_col+options_col,
+  sticky='nesw'
+)
+GUI.add_widget("pattern_rgb_text", pattern_rgb_text)
+
+pattern_red_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+pattern_red_cycle.add_state(text = "Red", colors=("black","white"))
+pattern_red_cycle.add_state(text = "Red", colors=("white","red"))
+pattern_red_cycle.update(1)
+pattern_red_cycle.grid(pattern_row+options_row+6,pattern_col+options_col+1)
+GUI.add_widget("pattern_red_cycle", pattern_red_cycle)
+
+pattern_green_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+pattern_green_cycle.add_state(text = "Green", colors=("black","white"))
+pattern_green_cycle.add_state(text = "Green", colors=("white","green"))
+pattern_green_cycle.update(1)
+pattern_green_cycle.grid(pattern_row+options_row+6,pattern_col+options_col+2)
+GUI.add_widget("pattern_green_cycle", pattern_green_cycle)
+
+pattern_blue_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+pattern_blue_cycle.add_state(text = "Blue", colors=("black","white"))
+pattern_blue_cycle.add_state(text = "Blue", colors=("white","blue"))
+pattern_blue_cycle.update(1)
+pattern_blue_cycle.grid(pattern_row+options_row+6,pattern_col+options_col+3)
+GUI.add_widget("pattern_blue_cycle", pattern_blue_cycle)
+
+#endregion
+
+#region: red focus RGB
+red_focus_rgb_text: Label = Label(
+  GUI.root,
+  text = "Red Focus Channels",
+  justify = 'left',
+  anchor = 'w'
+)
+red_focus_rgb_text.grid(
+  row = pattern_row+options_row+7,
+  column = pattern_col+options_col,
+  sticky='nesw'
+)
+GUI.add_widget("red_focus_rgb_text", red_focus_rgb_text)
+
+red_focus_red_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+red_focus_red_cycle.add_state(text = "Red", colors=("black","white"))
+red_focus_red_cycle.add_state(text = "Red", colors=("white","red"))
+red_focus_red_cycle.update(1)
+red_focus_red_cycle.grid(pattern_row+options_row+7,pattern_col+options_col+1)
+GUI.add_widget("red_focus_red_cycle", red_focus_red_cycle)
+
+red_focus_green_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+red_focus_green_cycle.add_state(text = "Green", colors=("black","white"))
+red_focus_green_cycle.add_state(text = "Green", colors=("white","green"))
+red_focus_green_cycle.update(0)
+red_focus_green_cycle.grid(pattern_row+options_row+7,pattern_col+options_col+2)
+GUI.add_widget("red_focus_green_cycle", red_focus_green_cycle)
+
+red_focus_blue_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+red_focus_blue_cycle.add_state(text = "Blue", colors=("black","white"))
+red_focus_blue_cycle.add_state(text = "Blue", colors=("white","blue"))
+red_focus_blue_cycle.update(0)
+red_focus_blue_cycle.grid(pattern_row+options_row+7,pattern_col+options_col+3)
+GUI.add_widget("red_focus_blue_cycle", red_focus_blue_cycle)
+
+
+#endregion
+
+#region: UV Focus RGB
+uv_focus_rgb_text: Label = Label(
+  GUI.root,
+  text = "UV Focus Channels",
+  justify = 'left',
+  anchor = 'w'
+)
+uv_focus_rgb_text.grid(
+  row = pattern_row+options_row+8,
+  column = pattern_col+options_col,
+  sticky='nesw'
+)
+GUI.add_widget("uv_focus_rgb_text", uv_focus_rgb_text)
+
+uv_focus_red_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+uv_focus_red_cycle.add_state(text = "Red", colors=("black","white"))
+uv_focus_red_cycle.add_state(text = "Red", colors=("white","red"))
+uv_focus_red_cycle.update(0)
+uv_focus_red_cycle.grid(pattern_row+options_row+8,pattern_col+options_col+1)
+GUI.add_widget("uv_focus_red_cycle", uv_focus_red_cycle)
+
+uv_focus_green_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+uv_focus_green_cycle.add_state(text = "Green", colors=("black","white"))
+uv_focus_green_cycle.add_state(text = "Green", colors=("white","green"))
+uv_focus_green_cycle.update(0)
+uv_focus_green_cycle.grid(pattern_row+options_row+8,pattern_col+options_col+2)
+GUI.add_widget("uv_focus_green_cycle", uv_focus_green_cycle)
+
+uv_focus_blue_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+uv_focus_blue_cycle.add_state(text = "Blue", colors=("black","white"))
+uv_focus_blue_cycle.add_state(text = "Blue", colors=("white","blue"))
+uv_focus_blue_cycle.update(1)
+uv_focus_blue_cycle.grid(pattern_row+options_row+8,pattern_col+options_col+3)
+GUI.add_widget("uv_focus_blue_cycle", uv_focus_blue_cycle)
 #endregion
 
 right_area.add(0,["duration_text",
@@ -1019,15 +1145,16 @@ right_area.add(0,["duration_text",
                         "slicer_horiz_text",
                         "slicer_horiz_intput",
                         "slicer_vert_intput",
+                        "slicer_pattern_cycle",
                         "FF_strength_text",
                         "FF_strength_intput",
-                        "flatfield_toggle",
+                        "flatfield_cycle",
                         "post_strength_text",
                         "post_strength_intput",
-                        "posterize_toggle",
+                        "posterize_cycle",
                         "fine_adjustment_text",
                         "border_size_intput",
-                        "fine_adjustment_toggle"])
+                        "fine_adjustment_cycle"])
 
 #endregion
 
@@ -1059,7 +1186,7 @@ next_tile_image: Label = Label(
 next_tile_image.grid(
   row = pattern_row+current_tile_row+1,
   column = pattern_col+current_tile_col,
-  rowspan=4,
+  rowspan=5,
   columnspan=4,
   sticky='nesw'
 )
@@ -1068,11 +1195,11 @@ GUI.add_widget("next_tile_image", next_tile_image)
 #endregion
 
 # region: Danger Buttons
-buttons_row = 6
+buttons_row = 7
 buttons_col = 0
-pattern_rowspan = 4
+pattern_rowspan = 3
 pattern_colspan = 3
-clear_rowspan = 4
+clear_rowspan = 3
 clear_colspan = 1
 
 pattern_status: Literal['idle','patterning', 'aborting'] = 'idle'
@@ -1166,7 +1293,8 @@ def begin_patterning():
   debug.info("Slicing pattern...")
   slicer.update(image=pattern_thumb.image,
                 horizontal_tiles=slicer_horiz_intput.get(),
-                vertical_tiles=slicer_vert_intput.get())
+                vertical_tiles=slicer_vert_intput.get(),
+                tiling_pattern=slicer.pattern_list[slicer_pattern_cycle.state])
   pattern_progress['value'] = 0
   pattern_progress['maximum'] = slicer.tile_count()
   debug.info("Patterning "+str(slicer.tile_count())+" tiles for "+str(duration_intput.get())+"ms \n  Total time: "+str(round((slicer.tile_count()*duration_intput.get())/1000))+"s")

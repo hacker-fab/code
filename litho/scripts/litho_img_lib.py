@@ -5,6 +5,33 @@ from math import ceil, cos, sin, radians
 from typing import Literal
 from math import pi
 
+def toggle_channels(image: Image.Image, red: bool = True, green: bool = True, blue: bool = True) -> Image.Image:
+  img_cpy: Image.Image = image.copy()
+  # check image is RGB or RGBA
+  if(img_cpy.mode != "RGB" and img_cpy.mode != "RGBA"):
+    img_cpy = img_cpy.convert("RGB")
+  if(red and green and blue):
+    return img_cpy
+  # at least one channel is off, create blank image for those channels
+  blank: Image.Image = Image.new("L", img_cpy.size)
+  # split image into channels
+  channels: tuple[Image.Image,...] = img_cpy.split()
+  assert(len(channels)==3 or len(channels)==4)
+  output: list[Image.Image] = []
+  if(red):
+    output.append(channels[0])
+  else:
+    output.append(blank)
+  if(green):
+    output.append(channels[1])
+  else:
+    output.append(blank)
+  if(blue):
+    output.append(channels[2])
+  else:
+    output.append(blank)
+  return Image.merge("RGB", tuple(output))
+
 # return max image size that will fit in [win_size] without cropping
 def fit_image(image: Image.Image, win_size: tuple[int,int]) -> tuple[int,int]:
   # for easier access
@@ -431,7 +458,6 @@ def __run_tests():
   for i in range(100):
     print_assert(alpha_to_dec(dec_to_alpha(i)), i, str(i)+":4")
     
-    
   print_assert(add((1,2,3),(3,2,1)), (4,4,4))
   print_assert(add((1,2,3),1), (2,3,4))
   print_assert(add(1,(3,2,1)), (4,3,2))
@@ -441,6 +467,44 @@ def __run_tests():
   print_assert(mult((1,2,3),2), (2,4,6))
   print_assert(mult(2,(3,2,1)), (6,4,2))
   print_assert(mult(2,2), 4)
+  
+  # test toggle_channels
+  black: Image.Image = Image.new("RGB", (1,1), (0,0,0))
+  red: Image.Image = Image.new("RGB", (1,1), (255,0,0))
+  green: Image.Image = Image.new("RGB", (1,1), (0,255,0))
+  blue: Image.Image = Image.new("RGB", (1,1), (0,0,255))
+  purple: Image.Image = Image.new("RGB", (1,1), (255,0,255))
+  yellow: Image.Image = Image.new("RGB", (1,1), (255,255,0))
+  cyan: Image.Image = Image.new("RGB", (1,1), (0,255,255))
+  white: Image.Image = Image.new("RGB", (1,1), (255,255,255))
+  test_colors: list[Image.Image] = [black, red, green, blue, purple, yellow, cyan, white]
+  
+  #test disabling all channels
+  for color in test_colors:
+    print_assert(toggle_channels(color, False, False, False), black)
+  #test disabling channels
+  print_assert(toggle_channels(white, False, False, False), black)
+  print_assert(toggle_channels(white, False, False, True), blue)
+  print_assert(toggle_channels(white, False, True,  False), green)
+  print_assert(toggle_channels(white, False, True,  True), cyan)
+  print_assert(toggle_channels(white, True,  False, False), red)
+  print_assert(toggle_channels(white, True,  False, True), purple)
+  print_assert(toggle_channels(white, True,  True,  False), yellow)
+  print_assert(toggle_channels(white, True,  True,  True), white)
+  #test enabling empty channels
+  for color in test_colors:
+    print_assert(toggle_channels(color, True, True, True), color)
+  #test bad image modes
+  L_image: Image.Image = Image.new("L", (1,1), 255)
+  LA_image: Image.Image = Image.new("LA", (1,1), (255,255))
+  CMYK_image: Image.Image = Image.new("CMYK", (1,1), (0,0,0,0))
+  test_modes: list[Image.Image] = [L_image, LA_image, CMYK_image]
+  for mode in test_modes:
+    print_assert(toggle_channels(mode, True, True, True), white, mode.mode)
+    print_assert(toggle_channels(mode, False, False, False), black, mode.mode)
+  
+  
+
   
   print("All tests passed")
 __run_tests()
