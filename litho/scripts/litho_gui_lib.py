@@ -514,12 +514,11 @@ class Projector_Controller():
       if(self.debug != None):
         self.debug.warn("Tried to show image while another is still showing")
       return False
-    img_copy: Image.Image = image.copy()
     # warn if image isn't correct size
-    if(img_copy.size != fit_image(img_copy, self.size())):
+    if(image.size != fit_image(image, self.size())):
       if(self.debug != None):
-        self.debug.warn("projecting image with incorrect size:\n  "+str(img_copy.size)+" instead of "+str(self.size()))
-    photo: ImageTk.PhotoImage = rasterize(img_copy)
+        self.debug.warn("projecting image with incorrect size:\n  "+str(image.size)+" instead of "+str(self.size()))
+    photo: ImageTk.PhotoImage = rasterize(image)
     self.__label__.config(image = photo)
     self.__label__.image = photo
     if(duration > 0):
@@ -551,6 +550,7 @@ class Projector_Controller():
     if(update): self.update()
     return (self.__TL__.winfo_width(), self.__TL__.winfo_height())
   
+  #update the projector window
   def update(self):
     self.__root__.update()
     self.__TL__.update()
@@ -719,7 +719,7 @@ class GUI_Controller():
 #   1: basic info
 #   2: basic info + function calls
 class Stage_Controller():
-  update_funcs: dict[Literal['x','y','z','any'], dict[str, Callable]] = {'x':{}, 'y':{}, 'z':{}, 'any':{}}
+  update_funcs: dict[Literal['x','y','z','any'], dict[str, Callable]]
   debug: Debug | None
   step_size: tuple[int,int,int]
   __coords__: tuple[int,int,int]
@@ -731,6 +731,7 @@ class Stage_Controller():
                step_sizes: tuple[int,int,int] = (1,1,1),
                debug: Debug | None = None,
                verbosity: int = 1):
+    self.update_funcs = {'x':{}, 'y':{}, 'z':{}, 'any':{}}
     self.__coords__ = starting_coords
     self.step_size = step_sizes
     self.debug = debug
