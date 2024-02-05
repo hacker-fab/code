@@ -388,10 +388,10 @@ center_area: Smart_Area = Smart_Area(
 center_area_cycle: Cycle = Cycle(
   root=GUI.root,
   debug=debug)
-center_area_cycle.add_state(text = "Stage Position",
+center_area_cycle.add_state(text = "- Stage Position -",
                             colors = ("black","white"),
                             enter = lambda: center_area.jump(0))
-center_area_cycle.add_state(text = "Fine Adjustment",
+center_area_cycle.add_state(text = "- Fine Adjustment -",
                             colors = ("black","light blue"),
                             enter = lambda: center_area.jump(1))
 center_area_cycle.grid(row = stage_row,
@@ -844,10 +844,10 @@ right_area: Smart_Area = Smart_Area(
 patterning_area_cycle: Cycle = Cycle(
   root=GUI.root,
   debug=debug)
-patterning_area_cycle.add_state(text = "Options",
+patterning_area_cycle.add_state(text = "- Options -",
                                 colors = ("black","white"),
                                 enter = lambda: right_area.jump(0))
-patterning_area_cycle.add_state(text = "Patterning",
+patterning_area_cycle.add_state(text = "- Patterning -",
                                 colors = ("white","red"),
                                 enter = lambda: right_area.jump(1))
 patterning_area_cycle.grid(row = pattern_row,
@@ -922,9 +922,9 @@ slicer_vert_intput.grid(pattern_row+options_row+2,pattern_col+options_col+2)
 GUI.add_widget("slicer_vert_intput", slicer_vert_intput)
 
 slicer_pattern_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
-slicer_pattern_cycle.add_state(text = "Snake")
-slicer_pattern_cycle.add_state(text = "Row Major")
-slicer_pattern_cycle.add_state(text = "Col Major")
+slicer_pattern_cycle.add_state(text = "Snake", colors=("black","pale green"))
+slicer_pattern_cycle.add_state(text = "Row Major", colors=("black","light blue"))
+slicer_pattern_cycle.add_state(text = "Col Major", colors=("black","light pink"))
 slicer_pattern_cycle.grid(pattern_row+options_row+2,pattern_col+options_col+3)
 GUI.add_widget("slicer_pattern_cycle", slicer_pattern_cycle)
 
@@ -957,7 +957,7 @@ GUI.add_widget("FF_strength_intput", FF_strength_intput)
 
 flatfield_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
 flatfield_cycle.add_state(text = "NOT Using Flatfield")
-flatfield_cycle.add_state(text = "Using Flatfield")
+flatfield_cycle.add_state(text = "Using Flatfield", colors=("white","black"))
 flatfield_cycle.grid(pattern_row+options_row+3,pattern_col+options_col+3)
 GUI.add_widget("flatfield_cycle", flatfield_cycle)
 #endregion
@@ -990,7 +990,7 @@ GUI.add_widget("post_strength_intput", post_strength_intput)
 
 posterize_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
 posterize_cycle.add_state(text = "NOT Posterizing")
-posterize_cycle.add_state(text = "Now Posterizing")
+posterize_cycle.add_state(text = "Now Posterizing", colors=("white","black"))
 posterize_cycle.grid(pattern_row+options_row+4,pattern_col+options_col+3)
 GUI.add_widget("posterize_cycle", posterize_cycle)
 
@@ -999,14 +999,13 @@ GUI.add_widget("posterize_cycle", posterize_cycle)
 #region: fine adjustment
 fine_adjustment_text: Label = Label(
   GUI.root,
-  text = "Fine Adjustment Border (%)",
+  text = "Fine Adj. Border (%)",
   justify = 'left',
   anchor = 'w'
 )
 fine_adjustment_text.grid(
   row = pattern_row+options_row+5,
   column = pattern_col+options_col,
-  columnspan=2,
   sticky='nesw'
 )
 GUI.add_widget("fine_adjustment_text", fine_adjustment_text)
@@ -1019,12 +1018,20 @@ border_size_intput: Intput = Intput(
   max=100,
   debug=debug
 )
-border_size_intput.grid(pattern_row+options_row+5,pattern_col+options_col+2)
+border_size_intput.grid(pattern_row+options_row+5,pattern_col+options_col+1)
 GUI.add_widget("border_size_intput", border_size_intput)
 
+reset_theta_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+reset_theta_cycle.add_state(text = "Reset Nothing")
+reset_theta_cycle.add_state(text = "Reset XY only", colors=("black","light pink"))
+reset_theta_cycle.add_state(text = "Reset theta only", colors=("black","light blue"))
+reset_theta_cycle.add_state(text = "Reset All", colors=("white","black"))
+reset_theta_cycle.grid(pattern_row+options_row+5,pattern_col+options_col+2)
+GUI.add_widget("reset_theta_cycle", reset_theta_cycle)
+
 fine_adjustment_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
-fine_adjustment_cycle.add_state(text = "NOT Using Fine Adjustment")
-fine_adjustment_cycle.add_state(text = "Using Fine Adjustment")
+fine_adjustment_cycle.add_state(text = "NOT Fine Adjust")
+fine_adjustment_cycle.add_state(text = "Now Fine Adjust", colors=("white","black"))
 fine_adjustment_cycle.grid(pattern_row+options_row+5,pattern_col+options_col+3)
 GUI.add_widget("fine_adjustment_cycle", fine_adjustment_cycle)
 #endregion
@@ -1141,20 +1148,33 @@ GUI.add_widget("uv_focus_blue_cycle", uv_focus_blue_cycle)
 #endregion
 
 right_area.add(0,["duration_text",
-                        "duration_intput",
-                        "slicer_horiz_text",
-                        "slicer_horiz_intput",
-                        "slicer_vert_intput",
-                        "slicer_pattern_cycle",
-                        "FF_strength_text",
-                        "FF_strength_intput",
-                        "flatfield_cycle",
-                        "post_strength_text",
-                        "post_strength_intput",
-                        "posterize_cycle",
-                        "fine_adjustment_text",
-                        "border_size_intput",
-                        "fine_adjustment_cycle"])
+                  "duration_intput",
+                  "slicer_horiz_text",
+                  "slicer_horiz_intput",
+                  "slicer_vert_intput",
+                  "slicer_pattern_cycle",
+                  "FF_strength_text",
+                  "FF_strength_intput",
+                  "flatfield_cycle",
+                  "post_strength_text",
+                  "post_strength_intput",
+                  "posterize_cycle",
+                  "fine_adjustment_text",
+                  "border_size_intput",
+                  "reset_theta_cycle",
+                  "fine_adjustment_cycle",
+                  "pattern_rgb_text",
+                  "pattern_red_cycle",
+                  "pattern_green_cycle",
+                  "pattern_blue_cycle",
+                  "red_focus_rgb_text",
+                  "red_focus_red_cycle",
+                  "red_focus_green_cycle",
+                  "red_focus_blue_cycle",
+                  "uv_focus_rgb_text",
+                  "uv_focus_red_cycle",
+                  "uv_focus_green_cycle",
+                  "uv_focus_blue_cycle"])
 
 #endregion
 
