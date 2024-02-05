@@ -231,21 +231,28 @@ help_popup.grid(GUI.grid_size[0]-1,GUI.grid_size[1]-1)
 import_row: int = 3
 import_col: int = 0
 
-def highlight_button(button: Button)-> None:
+#TODO: optimize so properties aren't reset unnecessarily
+showing_state: Literal['pattern','red_focus','uv_focus','flatfield', 'clear'] = 'clear'
+def highlight_button(button: Button) -> None:
+  global showing_state
   if(button == pattern_button_fixed):
     pattern_button_fixed.config(bg="black", fg="white")
+    showing_state = 'pattern'
   else:
     pattern_button_fixed.config(bg="white", fg="black")
   if(button == red_focus_button):
     red_focus_button.config(bg="black", fg="white")
+    showing_state = 'red_focus'
   else:
     red_focus_button.config(bg="white", fg="black")
   if(button == uv_focus_button):
     uv_focus_button.config(bg="black", fg="white")
+    showing_state = 'uv_focus'
   else:
     uv_focus_button.config(bg="white", fg="black")
   if(button == flatfield_button):
     flatfield_button.config(bg="black", fg="white")
+    showing_state = 'flatfield'
   else:
     flatfield_button.config(bg="white", fg="black")
 
@@ -270,13 +277,15 @@ pattern_thumb.grid(import_row,import_col, rowspan=4)
 GUI.add_widget("pattern_thumb", pattern_thumb)
 
 
-def show_pattern_fixed() -> None:
+def show_pattern_fixed(mode: Literal['update', 'slient']='update') -> None:
   highlight_button(pattern_button_fixed)
   pattern_thumb.temp_image = prep_pattern(pattern_thumb.temp_image)
   image: Image.Image = toggle_pattern_channels(pattern_thumb.temp_image)
-  pattern_thumb.update_thumbnail(image)
-  debug.info("Showing Pattern")
-  GUI.proj.show(image)
+  if(mode == 'update'):
+    pattern_thumb.update_thumbnail(image)
+    debug.info("Showing Pattern")
+    # apply affine transformation
+  GUI.proj.show(transform_image(image))
 pattern_button_fixed: Button = Button(
   GUI.root,
   text = 'Show Pattern',
@@ -303,15 +312,16 @@ flatfield_thumb: Thumbnail = Thumbnail(root=GUI.root,
 flatfield_thumb.grid(import_row,import_col+1, rowspan=4)
 GUI.add_widget("flatfield_thumb", flatfield_thumb)
 
-def show_flatfield() -> None:
+def show_flatfield(mode: Literal['update', 'slient']='update') -> None:
   highlight_button(flatfield_button)
   # resizeing
   image: Image.Image = flatfield_thumb.temp_image
   if(image.size != fit_image(image, GUI.proj.size())):
     debug.info("Resizing image for projection...")
     flatfield_thumb.temp_image = image.resize(fit_image(image, GUI.proj.size()), Image.Resampling.LANCZOS)
-  debug.info("Showing flatfield image")
-  GUI.proj.show(flatfield_thumb.temp_image)
+  if(mode == 'update'):
+    debug.info("Showing flatfield image")
+  GUI.proj.show(transform_image(flatfield_thumb.temp_image))
 
 flatfield_button: Button = Button(
   GUI.root,
@@ -332,18 +342,20 @@ red_focus_thumb: Thumbnail = Thumbnail(root=GUI.root,
 red_focus_thumb.grid(import_row+5,import_col, rowspan=4)
 GUI.add_widget("red_focus_thumb", red_focus_thumb)
 
-def show_red_focus() -> None:
+def show_red_focus(mode: Literal['update', 'slient']='update') -> None:
   highlight_button(red_focus_button)
   # posterizeing
   image: Image.Image = red_focus_thumb.temp_image
   if(posterize_cycle.state and (image.mode != 'L' or post_strength_intput.changed())):
     debug.info("Posterizing image...")
     red_focus_thumb.temp_image = posterize(red_focus_thumb.temp_image, round((post_strength_intput.get()*255)/100))
-    red_focus_thumb.update_thumbnail(red_focus_thumb.temp_image)
+    if(mode == 'update'):
+      red_focus_thumb.update_thumbnail(red_focus_thumb.temp_image)
   elif(not posterize_cycle.state and image.mode == 'L'):
     debug.info("Resetting image...")
     red_focus_thumb.temp_image = red_focus_thumb.image
-    red_focus_thumb.update_thumbnail(red_focus_thumb.temp_image)
+    if(mode == 'update'):
+      red_focus_thumb.update_thumbnail(red_focus_thumb.temp_image)
   # resizeing
   image: Image.Image = red_focus_thumb.temp_image
   if(image.size != fit_image(image, GUI.proj.size())):
@@ -356,9 +368,11 @@ def show_red_focus() -> None:
                                           red_focus_red_cycle.state,
                                           red_focus_green_cycle.state,
                                           red_focus_blue_cycle.state)
-    red_focus_thumb.update_thumbnail(image)
-  debug.info("Showing red focus image")
-  GUI.proj.show(image)
+    if(mode == 'update'):
+      red_focus_thumb.update_thumbnail(image)
+  if(mode == 'update'):
+    debug.info("Showing red focus image")
+  GUI.proj.show(transform_image(image))
 red_focus_button: Button = Button(
   GUI.root,
   text = 'Show Red Focus',
@@ -377,7 +391,7 @@ uv_focus_thumb: Thumbnail = Thumbnail(root=GUI.root,
 uv_focus_thumb.grid(import_row+5,import_col+1, rowspan=4)
 GUI.add_widget("uv_focus_thumb", uv_focus_thumb)
 
-def show_uv_focus() -> None:
+def show_uv_focus(mode: Literal['update', 'slient']='update') -> None:
   highlight_button(uv_focus_button)
   # resizeing
   image: Image.Image = uv_focus_thumb.temp_image
@@ -391,9 +405,11 @@ def show_uv_focus() -> None:
                                           uv_focus_red_cycle.state,
                                           uv_focus_green_cycle.state,
                                           uv_focus_blue_cycle.state)
-    uv_focus_thumb.update_thumbnail(image)
-  debug.info("Showing UV focus image")
-  GUI.proj.show(image)
+    if(mode == 'update'):
+      uv_focus_thumb.update_thumbnail(image)
+  if(mode == 'update'):
+    debug.info("Showing UV focus image")
+  GUI.proj.show(transform_image(image))
 
 uv_focus_button: Button = Button(
   GUI.root,
@@ -441,7 +457,7 @@ GUI.add_widget("center_area_cycle", center_area_cycle)
 
 stage: Stage_Controller = Stage_Controller(
 debug=debug,
-verbosity=3)
+verbosity=1)
 def step_update(axis: Literal['-x','+x','-y','+y','-z','+z']):
   # first check if the step size has changed
   if(x_step_intput.changed() or y_step_intput.changed() or z_step_intput.changed()):
@@ -654,20 +670,45 @@ center_area.add_func(0,bind_stage_controls, unbind_stage_controls)
 # instead of the z field and methods reprersenting the z axis, they represent the theta axis
 # this is confusing, but it's better than adding unnecessary complixty to the stage controller class
 
+#TODO: make whole background blue
+
 fine_adjust: Stage_Controller = Stage_Controller(
   debug=debug,
-  verbosity=3)
+  verbosity=1)
+def transform_image(image: Image.Image) -> Image.Image:
+  if(fine_adjustment_cycle.state == 1):
+    return better_transform(image, (*fine_adjust.xy(), (2*pi*fine_adjust.z())/360), GUI.proj.size(), border_size_intput.get())
+  return image
+def update_displayed_image() -> None:
+  match showing_state:
+    case 'clear':
+      return
+    case 'pattern':
+      show_pattern_fixed(mode='slient')
+    case 'flatfield':
+      show_flatfield(mode='slient')
+    case 'red_focus':
+      show_red_focus(mode='slient')
+    case 'uv_focus':
+      show_uv_focus(mode='slient')
 def fine_step_update(axis: Literal['-x','+x','-y','+y','-z','+z']):
+  debug.info(f"Fine Step Update: {axis}")
   # first check if the step size has changed
   if(fine_x_step_intput.changed() or fine_y_step_intput.changed() or fine_theta_step_intput.changed()):
     fine_adjust.step_size = (fine_x_step_intput.get(), fine_y_step_intput.get(), fine_theta_step_intput.get())
+  # next update the values
   fine_adjust.step(axis)
+  # update image
+  update_displayed_image()
 
 #region: Fine Adjustment Position
+def set_and_update_fine_adjustment() -> None:
+  fine_adjust.set(fine_x_intput.get(), fine_y_intput.get(), fine_theta_intput.get())
+  update_displayed_image()
 set_adjustment_button: Button = Button(
   GUI.root,
   text = 'Set Fine Adjustment',
-  command = lambda : fine_adjust.set(fine_x_intput.get(), fine_y_intput.get(), fine_z_intput.get())
+  command = set_and_update_fine_adjustment
   )
 set_adjustment_button.grid(
   row = stage_row+3,
@@ -1049,7 +1090,7 @@ GUI.add_widget("fine_adjustment_text", fine_adjustment_text)
 border_size_intput: Intput = Intput(
   root=GUI.root,
   name="Border Size",
-  default=0,
+  default=20,
   min=0,
   max=100,
   debug=debug
@@ -1431,6 +1472,10 @@ def clear_button_func():
   red_focus_button.config(bg="white", fg="black")
   uv_focus_button.config(bg="white", fg="black")
   flatfield_button.config(bg="white", fg="black")
+  # set global state to clear
+  global showing_state
+  showing_state = 'clear'
+  # clear the projection
   GUI.proj.clear()
 
 clear_button: Button = Button(
@@ -1460,7 +1505,6 @@ right_area.jump(0)
 
 #endregion
 
-GUI.debug.info("Debug info will appear here")
+debug.info("Debug info will appear here")
 GUI.mainloop()
-
 

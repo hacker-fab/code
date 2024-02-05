@@ -296,15 +296,14 @@ def better_transform(image: Image.Image,
   final_image: Image.Image = Image.new("RGB", output_size)
   img_cpy: Image.Image = image.copy()
   
-  #region: prepare image
+  #prepare image
   # if border is 100%, return a black image
-  if(border >= 100):
+  if(border < 0 or border >= 100):
     return final_image
   # next we need to scale image to the requested size
-  fit_size: tuple[int,int] = fit_image(image, (round(output_size[0]*(1-border)), 
-                                round(output_size[1]*(1-border))))
+  fit_size: tuple[int,int] = fit_image(image, (round(output_size[0]*((100-border)/100)), 
+                                round(output_size[1]*((100-border)/100))))
   img_cpy = img_cpy.resize(fit_size, resample=Image.Resampling.LANCZOS)
-  #endregion
 
   # first we want to compute the affine matrix to move the image to the center of the output
   affine_matrix: tuple[float,...] = build_affine(-vector[0]-(output_size[0]-fit_size[0])//2,
