@@ -5,7 +5,7 @@ from math import ceil, cos, sin, radians
 from typing import Literal
 from math import pi
 
-def toggle_channels(image: Image.Image, red: bool = True, green: bool = True, blue: bool = True) -> Image.Image:
+def toggle_channels(image: Image.Image, red: bool | int = True, green: bool | int = True, blue: bool | int = True) -> Image.Image:
   img_cpy: Image.Image = image.copy()
   # check image is RGB or RGBA
   if(img_cpy.mode != "RGB" and img_cpy.mode != "RGBA"):
