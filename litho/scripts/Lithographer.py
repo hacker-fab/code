@@ -26,7 +26,6 @@ from litho_gui_lib import *
 # - use a paste command to put the preview on a black background to represent the actual exposure. 
 
 VERSION: str = "1.?.?"
-
 #region: setup 
 THUMBNAIL_SIZE: tuple[int,int] = (160,90)
 CHIN_SIZE: int = 400
@@ -225,6 +224,7 @@ help_popup: TextPopup = TextPopup(
   popup_text=help_text,
   debug=debug)
 help_popup.grid(GUI.grid_size[0]-1,GUI.grid_size[1]-1)
+GUI.add_widget("help_popup", help_popup)
 #endregion
 
 #region: imports / thumbnails
@@ -236,22 +236,22 @@ showing_state: Literal['pattern','red_focus','uv_focus','flatfield', 'clear'] = 
 def highlight_button(button: Button) -> None:
   global showing_state
   if(button == pattern_button_fixed):
-    pattern_button_fixed.config(bg="black", fg="white")
+    pattern_button_fixed.config(bg="gray", fg="white")
     showing_state = 'pattern'
   else:
     pattern_button_fixed.config(bg="white", fg="black")
   if(button == red_focus_button):
-    red_focus_button.config(bg="black", fg="white")
+    red_focus_button.config(bg="gray", fg="white")
     showing_state = 'red_focus'
   else:
     red_focus_button.config(bg="white", fg="black")
   if(button == uv_focus_button):
-    uv_focus_button.config(bg="black", fg="white")
+    uv_focus_button.config(bg="gray", fg="white")
     showing_state = 'uv_focus'
   else:
     uv_focus_button.config(bg="white", fg="black")
   if(button == flatfield_button):
-    flatfield_button.config(bg="black", fg="white")
+    flatfield_button.config(bg="gray", fg="white")
     showing_state = 'flatfield'
   else:
     flatfield_button.config(bg="white", fg="black")
@@ -269,12 +269,11 @@ def pattern_import_func() -> None:
   next_tile_image.image = raster
   
 pattern_thumb: Thumbnail = Thumbnail(
-  root=GUI.root,
+  gui=GUI,
+  name="pattern_thumb",
   thumb_size=THUMBNAIL_SIZE,
-  func_on_success=pattern_import_func,
-  debug=debug)
+  func_on_success=pattern_import_func)
 pattern_thumb.grid(import_row,import_col, rowspan=4)
-GUI.add_widget("pattern_thumb", pattern_thumb)
 
 
 def show_pattern_fixed(mode: Literal['update', 'slient']='update') -> None:
@@ -303,13 +302,13 @@ GUI.add_widget("pattern_button_fixed", pattern_button_fixed)
 def guess_alpha():
   brightness: tuple[int,int] = get_brightness_range(flatfield_thumb.image, downsample_target=480)
   FF_strength_intput.set(round(((brightness[1]-brightness[0])*100)/510))
-flatfield_thumb: Thumbnail = Thumbnail(root=GUI.root,
-                                        thumb_size=THUMBNAIL_SIZE,
-                                        debug=debug,
-                                        accept_alpha=True,
-                                        func_on_success=guess_alpha)
+flatfield_thumb: Thumbnail = Thumbnail( 
+  gui=GUI,
+  name="flatfield_thumb",
+  thumb_size=THUMBNAIL_SIZE,
+  accept_alpha=True,
+  func_on_success=guess_alpha)
 flatfield_thumb.grid(import_row,import_col+1, rowspan=4)
-GUI.add_widget("flatfield_thumb", flatfield_thumb)
 
 def show_flatfield(mode: Literal['update', 'slient']='update') -> None:
   highlight_button(flatfield_button)
@@ -335,11 +334,11 @@ GUI.add_widget("flatfield_button", flatfield_button)
 #endregion
 
 #region: Red Focus
-red_focus_thumb: Thumbnail = Thumbnail(root=GUI.root,
-                                        thumb_size=THUMBNAIL_SIZE,
-                                        debug=debug)
+red_focus_thumb: Thumbnail = Thumbnail(
+  gui=GUI,
+  name="red_focus_thumb",
+  thumb_size=THUMBNAIL_SIZE)
 red_focus_thumb.grid(import_row+5,import_col, rowspan=4)
-GUI.add_widget("red_focus_thumb", red_focus_thumb)
 
 def show_red_focus(mode: Literal['update', 'slient']='update') -> None:
   highlight_button(red_focus_button)
@@ -384,11 +383,11 @@ GUI.add_widget("red_focus_button", red_focus_button)
 #endregion
 
 #region: UV Focus
-uv_focus_thumb: Thumbnail = Thumbnail(root=GUI.root,
-                                      thumb_size=THUMBNAIL_SIZE,
-                                      debug=debug)
+uv_focus_thumb: Thumbnail = Thumbnail(
+  gui=GUI,
+  name="uv_focus_thumb",
+  thumb_size=THUMBNAIL_SIZE)
 uv_focus_thumb.grid(import_row+5,import_col+1, rowspan=4)
-GUI.add_widget("uv_focus_thumb", uv_focus_thumb)
 
 def show_uv_focus(mode: Literal['update', 'slient']='update') -> None:
   highlight_button(uv_focus_button)
@@ -436,11 +435,8 @@ center_area: Smart_Area = Smart_Area(
   debug=debug,
   name="center area")
 #create button to toggle between stage and fine adjustment
-center_area_cycle: Cycle = Cycle(
-  root=GUI.root,
-  debug=debug)
+center_area_cycle: Cycle = Cycle(gui = GUI, name = "center_area_cycle")
 center_area_cycle.add_state(text = "- Stage Position -",
-                            colors = ("black","white"),
                             enter = lambda: center_area.jump(0))
 center_area_cycle.add_state(text = "- Fine Adjustment -",
                             colors = ("black","light blue"),
@@ -448,7 +444,6 @@ center_area_cycle.add_state(text = "- Fine Adjustment -",
 center_area_cycle.grid(row = stage_row,
                         col = stage_col,
                         colspan = 3)
-GUI.add_widget("center_area_cycle", center_area_cycle)
 
 #endregion
 
@@ -478,30 +473,24 @@ set_coords_button.grid(
 GUI.add_widget("set_coords_button", set_coords_button)
 
 x_intput = Intput(
-  root=GUI.root,
-  name="X",
-  default=stage.x(),
-  debug=debug)
+  gui=GUI,
+  name="x_intput",
+  default=stage.x())
 x_intput.grid(stage_row+1,stage_col,rowspan=2)
-GUI.add_widget("x_intput", x_intput)
 stage.update_funcs["x"]["x intput"] = lambda: x_intput.set(stage.x())
 
 y_intput = Intput(
-  root=GUI.root,
-  name="Y",
-  default=stage.y(),
-  debug=debug)
+  gui=GUI,
+  name="y_intput",
+  default=stage.y())
 y_intput.grid(stage_row+1,stage_col+1,rowspan=2)
-GUI.add_widget("y_intput", y_intput)
 stage.update_funcs["y"]["y intput"] = lambda: y_intput.set(stage.y())
 
 z_intput = Intput(
-  root=GUI.root,
-  name="Z",
-  default=stage.z(),
-  debug=debug)
+  gui=GUI,
+  name="z_intput",
+  default=stage.z())
 z_intput.grid(stage_row+1,stage_col+2,rowspan=2)
-GUI.add_widget("z_intput", z_intput)
 stage.update_funcs["z"]["z intput"] = lambda: z_intput.set(stage.z())
 
 #endregion
@@ -524,28 +513,22 @@ step_size_text.grid(
 GUI.add_widget("step_size_text", step_size_text)
 
 x_step_intput = Intput(
-  root=GUI.root,
-  name="X",
-  default=1,
-  debug=debug)
+  gui=GUI,
+  name="x_step_intput",
+  default=1)
 x_step_intput.grid(stage_row+step_size_row+1,stage_col)
-GUI.add_widget("x_step_intput", x_step_intput)
 
 y_step_intput = Intput(
-  root=GUI.root,
-  name="Y",
-  default=1,
-  debug=debug)
+  gui=GUI,
+  name="y_step_intput",
+  default=1)
 y_step_intput.grid(stage_row+step_size_row+1,stage_col+1)
-GUI.add_widget("y_step_intput", y_step_intput)
 
 z_step_intput = Intput(
-  root=GUI.root,
-  name="Z",
-  default=1,
-  debug=debug)
+  gui=GUI,
+  name="z_step_intput",
+  default=1)
 z_step_intput.grid(stage_row+step_size_row+1,stage_col+2)
-GUI.add_widget("z_step_intput", z_step_intput)
 
 #endregion
 
@@ -669,8 +652,6 @@ center_area.add_func(0,bind_stage_controls, unbind_stage_controls)
 # instead of the z field and methods reprersenting the z axis, they represent the theta axis
 # this is confusing, but it's better than adding unnecessary complixty to the stage controller class
 
-#TODO: make whole background blue
-
 fine_adjust: Stage_Controller = Stage_Controller(
   debug=debug,
   verbosity=1)
@@ -690,6 +671,7 @@ def update_displayed_image() -> None:
       show_red_focus(mode='slient')
     case 'uv_focus':
       show_uv_focus(mode='slient')
+#TODO: Check to make sure there is no chance of the semaphore getting stuck on
 fine_step_busy: bool = False
 def fine_step_update(axis: Literal['-x','+x','-y','+y','-z','+z']):
   global fine_step_busy
@@ -708,6 +690,22 @@ def fine_step_update(axis: Literal['-x','+x','-y','+y','-z','+z']):
   # remove semaphore lock
   fine_step_busy = False
 
+#TODO: make whole background blue
+# create a light blue background label with no border first so it appears underneath the other widgets
+background_label: Label = Label(
+  GUI.root,
+  bg="light blue"
+  )
+background_label.grid(
+  row = stage_row+1,
+  column = stage_col,
+  rowspan = 9,
+  columnspan = 3,
+  sticky='nesw')
+GUI.add_widget("background_label", background_label)
+  
+
+
 #region: Fine Adjustment Position
 def set_and_update_fine_adjustment() -> None:
   fine_adjust.set(fine_x_intput.get(), fine_y_intput.get(), fine_theta_intput.get())
@@ -715,6 +713,7 @@ def set_and_update_fine_adjustment() -> None:
 set_adjustment_button: Button = Button(
   GUI.root,
   text = 'Set Fine Adjustment',
+  bg="light blue",
   command = set_and_update_fine_adjustment
   )
 set_adjustment_button.grid(
@@ -725,30 +724,24 @@ set_adjustment_button.grid(
 GUI.add_widget("set_adjustment_button", set_adjustment_button)
 
 fine_x_intput = Intput(
-  root=GUI.root,
-  name="X",
-  default=fine_adjust.x(),
-  debug=debug)
+  gui=GUI,
+  name="fine_x_intput",
+  default=fine_adjust.x())
 fine_x_intput.grid(stage_row+1,stage_col,rowspan=2)
-GUI.add_widget("fine_x_intput", fine_x_intput)
 fine_adjust.update_funcs["x"]["fine x intput"] = lambda: fine_x_intput.set(fine_adjust.x())
 
 fine_y_intput = Intput(
-  root=GUI.root,
-  name="Y",
-  default=fine_adjust.y(),
-  debug=debug)
+  gui=GUI,
+  name="fine_y_intput",
+  default=fine_adjust.y())
 fine_y_intput.grid(stage_row+1,stage_col+1,rowspan=2)
-GUI.add_widget("fine_y_intput", fine_y_intput)
 fine_adjust.update_funcs["y"]["fine y intput"] = lambda: fine_y_intput.set(fine_adjust.y())
 
 fine_theta_intput = Intput(
-  root=GUI.root,
-  name="Theta",
-  default=fine_adjust.z(),
-  debug=debug)
+  gui=GUI,
+  name="fine_theta_intput",
+  default=fine_adjust.z())
 fine_theta_intput.grid(stage_row+1,stage_col+2,rowspan=2)
-GUI.add_widget("fine_theta_intput", fine_theta_intput)
 fine_adjust.update_funcs["z"]["fine theta intput"] = lambda: fine_theta_intput.set(fine_adjust.z())
 
 #endregion
@@ -759,6 +752,7 @@ fine_step_size_row: int = 5
 fine_step_size_text: Label = Label(
   GUI.root,
   text = "Fine Adjustment Step Size",
+  bg = "light blue",
   justify = 'center',
   anchor = 'center'
 )
@@ -771,28 +765,22 @@ fine_step_size_text.grid(
 GUI.add_widget("fine_step_size_text", fine_step_size_text)
 
 fine_x_step_intput = Intput(
-  root=GUI.root,
-  name="X",
-  default=1,
-  debug=debug)
+  gui=GUI,
+  name="fine_x_step_intput",
+  default=1)
 fine_x_step_intput.grid(stage_row+fine_step_size_row+1,stage_col)
-GUI.add_widget("fine_x_step_intput", fine_x_step_intput)
 
 fine_y_step_intput = Intput(
-  root=GUI.root,
-  name="Y",
-  default=1,
-  debug=debug)
+  gui=GUI,
+  name="fine_y_step_intput",
+  default=1)
 fine_y_step_intput.grid(stage_row+fine_step_size_row+1,stage_col+1)
-GUI.add_widget("fine_y_step_intput", fine_y_step_intput)
 
 fine_theta_step_intput = Intput(
-  root=GUI.root,
-  name="Theta",
-  default=1,
-  debug=debug)
+  gui=GUI,
+  name="fine_theta_step_intput",
+  default=1)
 fine_theta_step_intput.grid(stage_row+fine_step_size_row+1,stage_col+2)
-GUI.add_widget("fine_theta_step_intput", fine_theta_step_intput)
 
 #endregion
 
@@ -801,6 +789,7 @@ fine_step_button_row = 7
 ### X axis ###
 fine_up_x_button: Button = Button(
   GUI.root,
+  bg = "light blue",
   text = '+x',
   command = lambda : fine_step_update('+x')
   )
@@ -812,6 +801,7 @@ GUI.add_widget("fine_up_x_button", fine_up_x_button)
 
 fine_down_x_button: Button = Button(
   GUI.root,
+  bg = "light blue",
   text = '-x',
   command = lambda : fine_step_update('-x')
   )
@@ -824,6 +814,7 @@ GUI.add_widget("fine_down_x_button", fine_down_x_button)
 ### Y axis ###
 fine_up_y_button: Button = Button(
   GUI.root,
+  bg = "light blue",
   text = '+y',
   command = lambda : fine_step_update('+y')
   )
@@ -835,6 +826,7 @@ GUI.add_widget("fine_up_y_button", fine_up_y_button)
 
 fine_down_y_button: Button = Button(
   GUI.root,
+  bg = "light blue",
   text = '-y',
   command = lambda : fine_step_update('-y')
   )
@@ -847,6 +839,7 @@ GUI.add_widget("fine_down_y_button", fine_down_y_button)
 ### Theta ###
 fine_up_theta_button: Button = Button(
   GUI.root,
+  bg = "light blue",
   text = '+theta',
   command = lambda : fine_step_update('+z')
   )
@@ -858,6 +851,7 @@ GUI.add_widget("fine_up_theta_button", fine_up_theta_button)
 
 fine_down_theta_button: Button = Button(
   GUI.root,
+  bg = "light blue",
   text = '-theta',
   command = lambda : fine_step_update('-z')
   )
@@ -891,7 +885,8 @@ def unbind_fine_controls() -> None:
   
 #endregion
 
-center_area.add(1,["set_adjustment_button",
+center_area.add(1,[ "background_label",
+                    "set_adjustment_button",
                     "fine_x_intput",
                     "fine_y_intput",
                     "fine_theta_intput",
@@ -925,19 +920,15 @@ right_area: Smart_Area = Smart_Area(
   debug=debug,
   name="right area")
 #create button to toggle between patterning and options
-patterning_area_cycle: Cycle = Cycle(
-  root=GUI.root,
-  debug=debug)
+patterning_area_cycle: Cycle = Cycle(gui = GUI, name = "patterning_area_cycle")
 patterning_area_cycle.add_state(text = "- Options -",
-                                colors = ("black","white"),
                                 enter = lambda: right_area.jump(0))
 patterning_area_cycle.add_state(text = "- Patterning -",
-                                colors = ("white","red"),
+                                colors = ("white", "red"),
                                 enter = lambda: right_area.jump(1))
 patterning_area_cycle.grid(row = pattern_row,
                         col = pattern_col,
                         colspan = 4)
-GUI.add_widget("patterning_area_cycle", patterning_area_cycle)
 
 #endregion
 
@@ -960,13 +951,11 @@ duration_text.grid(
 GUI.add_widget("duration_text", duration_text)
 
 duration_intput: Intput = Intput(
-  root=GUI.root,
-  name="Pattern Duration",
+  gui=GUI,
+  name="duration_intput",
   default=1000,
-  min = 0,
-  debug=debug)
+  min = 0)
 duration_intput.grid(pattern_row+options_row+1,pattern_col+options_col+1, colspan=3)
-GUI.add_widget("duration_intput", duration_intput)
 
 #endregion
 
@@ -986,31 +975,26 @@ slicer_horiz_text.grid(
 GUI.add_widget("slicer_horiz_text", slicer_horiz_text)
 
 slicer_horiz_intput: Intput = Intput(
-  root=GUI.root,
-  name="Slicer Horiz",
+  gui=GUI,
+  name="slicer_horiz_intput",
   default=0,
   min=0,
-  debug=debug
 )
 slicer_horiz_intput.grid(pattern_row+options_row+2,pattern_col+options_col+1)
-GUI.add_widget("slicer_horiz_intput", slicer_horiz_intput)
 
 slicer_vert_intput: Intput = Intput(
-  root=GUI.root,
-  name="Slicer Vert",
+  gui=GUI,
+  name="slicer_vert_intput",
   default=0,
   min=0,
-  debug=debug
 )
 slicer_vert_intput.grid(pattern_row+options_row+2,pattern_col+options_col+2)
-GUI.add_widget("slicer_vert_intput", slicer_vert_intput)
 
-slicer_pattern_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+slicer_pattern_cycle: Cycle = Cycle(gui=GUI, name="slicer_pattern_cycle")
 slicer_pattern_cycle.add_state(text = "Snake", colors=("black","pale green"))
 slicer_pattern_cycle.add_state(text = "Row Major", colors=("black","light blue"))
 slicer_pattern_cycle.add_state(text = "Col Major", colors=("black","light pink"))
 slicer_pattern_cycle.grid(pattern_row+options_row+2,pattern_col+options_col+3)
-GUI.add_widget("slicer_pattern_cycle", slicer_pattern_cycle)
 
 #endregion
 
@@ -1030,20 +1014,17 @@ FF_strength_text.grid(
 GUI.add_widget("FF_strength_text", FF_strength_text)
 
 FF_strength_intput: Intput = Intput(
-  root=GUI.root,
-  name="FF Strength",
+  gui=GUI,
+  name="FF_strength_intput",
   default=0,
   min = 0,
-  max = 100,
-  debug=debug)
+  max = 100)
 FF_strength_intput.grid(pattern_row+options_row+3,pattern_col+options_col+2)
-GUI.add_widget("FF_strength_intput", FF_strength_intput)
 
-flatfield_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+flatfield_cycle: Cycle = Cycle(gui=GUI, name="flatfield_cycle")
 flatfield_cycle.add_state(text = "NOT Using Flatfield")
-flatfield_cycle.add_state(text = "Using Flatfield", colors=("white","black"))
+flatfield_cycle.add_state(text = "Using Flatfield", colors=("white", "gray"))
 flatfield_cycle.grid(pattern_row+options_row+3,pattern_col+options_col+3)
-GUI.add_widget("flatfield_cycle", flatfield_cycle)
 #endregion
 
 #region: posterize
@@ -1062,21 +1043,18 @@ post_strength_text.grid(
 GUI.add_widget("post_strength_text", post_strength_text)
 
 post_strength_intput: Intput = Intput(
-  root=GUI.root,
-  name="Post Strength",
+  gui=GUI,
+  name="post_strength_intput",
   default=50,
   min=0,
-  max=100,
-  debug=debug
+  max=100
 )
 post_strength_intput.grid(pattern_row+options_row+4,pattern_col+options_col+2)
-GUI.add_widget("post_strength_intput", post_strength_intput)
 
-posterize_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+posterize_cycle: Cycle = Cycle(gui=GUI, name="posterize_cycle")
 posterize_cycle.add_state(text = "NOT Posterizing")
-posterize_cycle.add_state(text = "Now Posterizing", colors=("white","black"))
+posterize_cycle.add_state(text = "Now Posterizing", colors=("white", "gray"))
 posterize_cycle.grid(pattern_row+options_row+4,pattern_col+options_col+3)
-GUI.add_widget("posterize_cycle", posterize_cycle)
 
 #endregion
 
@@ -1095,29 +1073,25 @@ fine_adjustment_text.grid(
 GUI.add_widget("fine_adjustment_text", fine_adjustment_text)
 
 border_size_intput: Intput = Intput(
-  root=GUI.root,
-  name="Border Size",
+  gui=GUI,
+  name="border_size_intput",
   default=20,
   min=0,
-  max=100,
-  debug=debug
+  max=100
 )
 border_size_intput.grid(pattern_row+options_row+5,pattern_col+options_col+1)
-GUI.add_widget("border_size_intput", border_size_intput)
 
-reset_theta_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
-reset_theta_cycle.add_state(text = "Reset Nothing")
-reset_theta_cycle.add_state(text = "Reset XY only", colors=("black","light pink"))
-reset_theta_cycle.add_state(text = "Reset theta only", colors=("black","light blue"))
-reset_theta_cycle.add_state(text = "Reset All", colors=("white","black"))
-reset_theta_cycle.grid(pattern_row+options_row+5,pattern_col+options_col+2)
-GUI.add_widget("reset_theta_cycle", reset_theta_cycle)
+reset_adj_cycle: Cycle = Cycle(gui=GUI, name="reset_adj_cycle")
+reset_adj_cycle.add_state(text = "Reset Nothing")
+reset_adj_cycle.add_state(text = "Reset XY only", colors=("black","light pink"))
+reset_adj_cycle.add_state(text = "Reset theta only", colors=("black","light blue"))
+reset_adj_cycle.add_state(text = "Reset All", colors=("white", "gray"))
+reset_adj_cycle.grid(pattern_row+options_row+5,pattern_col+options_col+2)
 
-fine_adjustment_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
+fine_adjustment_cycle: Cycle = Cycle(gui=GUI, name="fine_adjustment_cycle")
 fine_adjustment_cycle.add_state(text = "NOT Fine Adjust")
-fine_adjustment_cycle.add_state(text = "Now Fine Adjust", colors=("white","black"))
+fine_adjustment_cycle.add_state(text = "Now Fine Adjust", colors=("white", "gray"))
 fine_adjustment_cycle.grid(pattern_row+options_row+5,pattern_col+options_col+3)
-GUI.add_widget("fine_adjustment_cycle", fine_adjustment_cycle)
 #endregion
 
 #region: pattern RGB
@@ -1134,26 +1108,23 @@ pattern_rgb_text.grid(
 )
 GUI.add_widget("pattern_rgb_text", pattern_rgb_text)
 
-pattern_red_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
-pattern_red_cycle.add_state(text = "Red", colors=("black","white"))
+pattern_red_cycle: Cycle = Cycle(gui=GUI, name="pattern_red_cycle")
+pattern_red_cycle.add_state(text = "Red")
 pattern_red_cycle.add_state(text = "Red", colors=("black","light pink"))
 pattern_red_cycle.update(1)
 pattern_red_cycle.grid(pattern_row+options_row+6,pattern_col+options_col+1)
-GUI.add_widget("pattern_red_cycle", pattern_red_cycle)
 
-pattern_green_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
-pattern_green_cycle.add_state(text = "Green", colors=("black","white"))
+pattern_green_cycle: Cycle = Cycle(gui=GUI, name="pattern_green_cycle")
+pattern_green_cycle.add_state(text = "Green")
 pattern_green_cycle.add_state(text = "Green", colors=("black","pale green"))
 pattern_green_cycle.update(1)
 pattern_green_cycle.grid(pattern_row+options_row+6,pattern_col+options_col+2)
-GUI.add_widget("pattern_green_cycle", pattern_green_cycle)
 
-pattern_blue_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
-pattern_blue_cycle.add_state(text = "Blue", colors=("black","white"))
+pattern_blue_cycle: Cycle = Cycle(gui=GUI, name="pattern_blue_cycle")
+pattern_blue_cycle.add_state(text = "Blue")
 pattern_blue_cycle.add_state(text = "Blue", colors=("black","light blue"))
 pattern_blue_cycle.update(1)
 pattern_blue_cycle.grid(pattern_row+options_row+6,pattern_col+options_col+3)
-GUI.add_widget("pattern_blue_cycle", pattern_blue_cycle)
 
 #endregion
 
@@ -1171,26 +1142,23 @@ red_focus_rgb_text.grid(
 )
 GUI.add_widget("red_focus_rgb_text", red_focus_rgb_text)
 
-red_focus_red_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
-red_focus_red_cycle.add_state(text = "Red", colors=("black","white"))
+red_focus_red_cycle: Cycle = Cycle(gui=GUI, name="red_focus_red_cycle")
+red_focus_red_cycle.add_state(text = "Red")
 red_focus_red_cycle.add_state(text = "Red", colors=("black","light pink"))
 red_focus_red_cycle.update(1)
 red_focus_red_cycle.grid(pattern_row+options_row+7,pattern_col+options_col+1)
-GUI.add_widget("red_focus_red_cycle", red_focus_red_cycle)
 
-red_focus_green_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
-red_focus_green_cycle.add_state(text = "Green", colors=("black","white"))
+red_focus_green_cycle: Cycle = Cycle(gui=GUI, name="red_focus_green_cycle")
+red_focus_green_cycle.add_state(text = "Green")
 red_focus_green_cycle.add_state(text = "Green", colors=("black","pale green"))
 red_focus_green_cycle.update(0)
 red_focus_green_cycle.grid(pattern_row+options_row+7,pattern_col+options_col+2)
-GUI.add_widget("red_focus_green_cycle", red_focus_green_cycle)
 
-red_focus_blue_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
-red_focus_blue_cycle.add_state(text = "Blue", colors=("black","white"))
+red_focus_blue_cycle: Cycle = Cycle(gui=GUI, name="red_focus_blue_cycle")
+red_focus_blue_cycle.add_state(text = "Blue")
 red_focus_blue_cycle.add_state(text = "Blue", colors=("black","light blue"))
 red_focus_blue_cycle.update(0)
 red_focus_blue_cycle.grid(pattern_row+options_row+7,pattern_col+options_col+3)
-GUI.add_widget("red_focus_blue_cycle", red_focus_blue_cycle)
 
 
 #endregion
@@ -1209,26 +1177,23 @@ uv_focus_rgb_text.grid(
 )
 GUI.add_widget("uv_focus_rgb_text", uv_focus_rgb_text)
 
-uv_focus_red_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
-uv_focus_red_cycle.add_state(text = "Red", colors=("black","white"))
+uv_focus_red_cycle: Cycle = Cycle(gui=GUI, name="uv_focus_red_cycle")
+uv_focus_red_cycle.add_state(text = "Red")
 uv_focus_red_cycle.add_state(text = "Red", colors=("blackblack","light pink"))
 uv_focus_red_cycle.update(0)
 uv_focus_red_cycle.grid(pattern_row+options_row+8,pattern_col+options_col+1)
-GUI.add_widget("uv_focus_red_cycle", uv_focus_red_cycle)
 
-uv_focus_green_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
-uv_focus_green_cycle.add_state(text = "Green", colors=("black","white"))
+uv_focus_green_cycle: Cycle = Cycle(gui=GUI, name="uv_focus_green_cycle")
+uv_focus_green_cycle.add_state(text = "Green")
 uv_focus_green_cycle.add_state(text = "Green", colors=("blackblack","pale green"))
 uv_focus_green_cycle.update(0)
 uv_focus_green_cycle.grid(pattern_row+options_row+8,pattern_col+options_col+2)
-GUI.add_widget("uv_focus_green_cycle", uv_focus_green_cycle)
 
-uv_focus_blue_cycle: Cycle = Cycle(root=GUI.root, debug=debug)
-uv_focus_blue_cycle.add_state(text = "Blue", colors=("black","white"))
+uv_focus_blue_cycle: Cycle = Cycle(gui=GUI, name="uv_focus_blue_cycle")
+uv_focus_blue_cycle.add_state(text = "Blue")
 uv_focus_blue_cycle.add_state(text = "Blue", colors=("black","light blue"))
 uv_focus_blue_cycle.update(1)
 uv_focus_blue_cycle.grid(pattern_row+options_row+8,pattern_col+options_col+3)
-GUI.add_widget("uv_focus_blue_cycle", uv_focus_blue_cycle)
 #endregion
 
 right_area.add(0,["duration_text",
@@ -1245,7 +1210,7 @@ right_area.add(0,["duration_text",
                   "posterize_cycle",
                   "fine_adjustment_text",
                   "border_size_intput",
-                  "reset_theta_cycle",
+                  "reset_adj_cycle",
                   "fine_adjustment_cycle",
                   "pattern_rgb_text",
                   "pattern_red_cycle",
@@ -1263,6 +1228,8 @@ right_area.add(0,["duration_text",
 #endregion
 
 #region: Patterning Area
+
+#TODO: make the patterning area the same width as options, it's annoying that it changes
 
 #region: Current Tile
 current_tile_row = 1
@@ -1314,10 +1281,7 @@ def change_patterning_status(new_status: Literal['idle','patterning', 'aborting'
       match new_status:
         case 'patterning':
           # reset all "show" buttons
-          pattern_button_fixed.config(bg="white", fg="black")
-          red_focus_button.config(bg="white", fg="black")
-          uv_focus_button.config(bg="white", fg="black")
-          flatfield_button.config(bg="white", fg="black")
+          highlight_button(None)
           # change clear button to abort button
           clear_button.config(
             text='Abort',
@@ -1414,6 +1378,7 @@ def begin_patterning():
       image = prep_pattern(pattern_thumb.temp_image, thumb=pattern_thumb, toggle_colors=True)
     else:
       image = prep_pattern(slicer.image(), toggle_colors=True)
+    image = transform_image(image)
     #TODO apply fine adjustment vector to image
     #TODO remove once camera is implemented
     camera_image_preview = rasterize(image.resize(fit_image(image, (GUI.window_size[0],(GUI.window_size[0]*9)//16)), Image.Resampling.LANCZOS))
@@ -1440,7 +1405,7 @@ def begin_patterning():
       #delta_vector = tuple(map(float, input("Next vector [dX dY theta]:").split(None,3)))
     else:
       break
-    #TODO: delete this pause. This is to "simulate" the CV taking time to move the stage
+    #TODO: delete this pause. This is to "emulate" the CV taking time to move the stage
     sleep(0.5)
   # restart slicer
   slicer.restart()
@@ -1449,6 +1414,18 @@ def begin_patterning():
   # TODO remove once camera is implemented
   camera.config(image=camera_placeholder)
   camera.image = camera_placeholder
+  # reset fine adjustment parameters based on reset_adj_cycle
+  match reset_adj_cycle.state_name():
+    case "Reset Nothing":
+      pass
+    case "Reset XY only":
+      fine_adjust.set(0,0,fine_adjust.z())
+    case "Reset theta only":
+      fine_adjust.set(*fine_adjust.xy(),0)
+    case "Reset All":
+      fine_adjust.set(0,0,0)
+    case _:
+      debug.warn("Invalid state for reset_adj_cycle")
   # give user feedback
   pattern_progress['value'] = 0
   if(pattern_status == 'aborting'):

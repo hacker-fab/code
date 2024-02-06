@@ -1,3 +1,4 @@
+from __future__ import annotations
 from tkinter import Tk, Button, Toplevel, Entry, IntVar, Variable, filedialog, Label, Widget
 from tkinter.ttk import Progressbar
 from PIL import ImageTk, Image
@@ -6,9 +7,10 @@ from os.path import basename
 from litho_img_lib import *
 from typing import Callable, Literal, Union
 
+
 # widget to display info, errors, warning, and text
 class Debug():
-  widget: Label
+  __widget__: Label
   text_color: tuple[str, str]
   warn_color: tuple[str, str]
   err_color:  tuple[str, str]
@@ -21,7 +23,7 @@ class Debug():
     self.text_color = text_color
     self.warn_color = warn_color
     self.err_color = err_color
-    self.widget = Label(
+    self.__widget__ = Label(
       root,
       justify = "left",
       anchor = "w"
@@ -30,28 +32,28 @@ class Debug():
   
   # show text in the debug widget
   def info(self, text:str):
-    self.widget.config(text = text)
+    self.__widget__.config(text = text)
     self.__set_color__(self.text_color)
     print("i "+text)
   
   # show warning in the debug widget
   def warn(self, text:str):
-    self.widget.config(text = text)
+    self.__widget__.config(text = text)
     self.__set_color__(self.warn_color)
     print("w "+text)
     
   # show error in the debug widget
   def error(self, text:str):
-    self.widget.config(text = text)
+    self.__widget__.config(text = text)
     self.__set_color__(self.err_color)
     print("e "+text)
   
   # place widget on the grid
   def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
     if(row == None or col == None):
-      self.widget.grid()
+      self.__widget__.grid()
     else:
-      self.widget.grid(row = row,
+      self.__widget__.grid(row = row,
                        column = col,
                        rowspan = rowspan,
                        columnspan = colspan,
@@ -59,121 +61,49 @@ class Debug():
   
   # remove widget from the grid
   def grid_remove(self):
-    self.widget.grid_remove()
+    self.__widget__.grid_remove()
   
   # set the text and background color
   def __set_color__(self, colors: tuple[str,str]):
-    self.widget.config(fg = colors[0],
+    self.__widget__.config(fg = colors[0],
                        bg = colors[1])
-
-# [DEPRECATED]
-# Cycle class fully replaces this
-class Toggle():
-  # mandatory / main fields
-  widget: Button
-  state: bool
-  # user-inputted fields
-  text: tuple[str,str]
-  colors: tuple[tuple[str,str],tuple[str,str]]
-  debug: Debug | None
-  func_high: Callable | None
-  func_low: Callable | None
-  func_always: Callable | None
-  
-  # create new Toggle widget
-  def __init__( self, root: Tk,
-                text: tuple[str,str], 
-                colors: tuple[tuple[str,str],tuple[str,str]] = 
-                  (("black", "white"),("white", "black")), 
-                initial_state:bool=False,
-                debug: Debug | None = None,
-                func_on_true: Callable | None = None,
-                func_on_false: Callable | None = None,
-                func_always: Callable | None = None):
-    # set fields
-    self.text = text
-    self.colors = colors
-    self.state = initial_state
-    self.debug = debug
-    self.func_high = func_on_true
-    self.func_low = func_on_false
-    self.func_always = func_always
-    # create button widget
-    self.widget = Button(root, command=self.toggle)
-    # update to reflect default state
-    self.__update__()
-  
-  # place widget on the grid
-  def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
-    if(row == None or col == None):
-      self.widget.grid()
-    else:
-      self.widget.grid(row = row,
-                       column = col,
-                       rowspan = rowspan,
-                       columnspan = colspan,
-                       sticky = "nesw")
-  
-  # remove widget from the grid
-  def grid_remove(self):
-    self.widget.grid_remove()
-    
-  # toggle the state and update widget
-  # optionally specify function to call when pressed
-  def toggle(self, func = None):
-    self.state = not self.state
-    self.__update__()
-    if(self.state and self.func_high != None):
-      self.func_high()
-    if(not self.state and self.func_low != None):
-      self.func_low()
-    if(self.func_always != None):
-      self.func_always()
-  
-  # update widget to reflect current state
-  def __update__(self):
-    if(self.state):
-      self.widget.config( fg = self.colors[1][0],
-                          bg = self.colors[1][1],
-                          text = self.text[1])
-      if(self.debug != None):
-        self.debug.info("Toggle set to "+self.text[1])
-    else:
-      self.widget.config( fg = self.colors[0][0],
-                          bg = self.colors[0][1],
-                          text = self.text[0])
-      if(self.debug != None):
-        self.debug.info("Toggle set to "+self.text[0])
 
 # creates a button that cycles through states
 # each state contains: text, colors, and entering / exiting functions
 class Cycle():
+  # global counter to ensure unique names
+  __total_cycles__: int = 0
   # mandatory / main fields
-  __Widget__: Button
+  __widget__: Button
+  __gui__: GUI_Controller
   state: int
   # user-inputted fields
   # tuple structure: (text, (fg, bg), (enter, exit))
   cycle_state_t = tuple[str, tuple[str,str], tuple[Callable | None, Callable | None]]
   __states__: list[cycle_state_t]
-  debug: Debug | None
   func_always: Callable | None
   
   # create new Cycle widget
-  def __init__( self, root: Tk,
-                debug: Debug | None = None,
-                func_always: Callable | None = None):
-    self.debug = debug
+  def __init__( self, gui: GUI_Controller,
+          name: str | None = None,
+          func_always: Callable | None = None):
+    self.__gui__ = gui
     self.func_always = func_always
     self.state = 0
     self.__states__ = []
-    self.widget = Button(root, command=self.cycle)
+    self.__widget__ = Button(gui.root, command=self.cycle)
+    if(name == None):
+      gui.add_widget("unnamed cycle widget "+str(Cycle.__total_cycles__), self)
+      Cycle.__total_cycles__ += 1
+    else:
+      gui.add_widget(name, self)
     
   # place widget on the grid
   def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
     if(row == None or col == None):
-      self.widget.grid()
+      self.__widget__.grid()
     else:
-      self.widget.grid(row = row,
+      self.__widget__.grid(row = row,
                        column = col,
                        rowspan = rowspan,
                        columnspan = colspan,
@@ -181,7 +111,7 @@ class Cycle():
       
   # remove widget from the grid
   def grid_remove(self):
-    self.widget.grid_remove()
+    self.__widget__.grid_remove()
     
   # add a new state to the cycle
   def add_state(self,
@@ -192,7 +122,7 @@ class Cycle():
     self.__states__.append((text, colors, (enter, exit)))
     # update widget cosmetics to the first state added
     if(len(self.__states__) == 1):
-      self.widget.config( text = text,
+      self.__widget__.config( text = text,
                           fg = colors[0],
                           bg = colors[1])
   
@@ -200,19 +130,19 @@ class Cycle():
   def update(self, index: int = 0):
     # check if index is valid
     if(index < 0 or index >= len(self.__states__)):
-      if(self.debug != None):
-        self.debug.error("invalid cycle update target "+str(index)+" > "+str(len(self.__states__)-1))
+      if(self.__gui__.debug != None):
+        self.__gui__.debug.error("invalid cycle update target "+str(index)+" > "+str(len(self.__states__)-1))
       return
     # call exit function of previous state
     if(self.__states__[self.state][2][1] != None):
       self.__states__[self.state][2][1]()
     # update state
     self.state = index
-    self.widget.config( text = self.__states__[index][0],
+    self.__widget__.config( text = self.__states__[index][0],
                         fg = self.__states__[index][1][0],
                         bg = self.__states__[index][1][1])
-    if(self.debug != None):
-      self.debug.info("Cycle set to "+str(index)+": "+self.__states__[index][0])
+    if(self.__gui__.debug != None):
+      self.__gui__.debug.info("Cycle set to "+str(index)+": "+self.__states__[index][0])
     # call enter function of new state
     if(self.__states__[index][2][0] != None):
       self.__states__[index][2][0]()
@@ -222,51 +152,63 @@ class Cycle():
       
   def cycle(self):
     if(len(self.__states__) == 0):
-      if(self.debug != None):
-        self.debug.warn("Tried to cycle with no states")
+      if(self.__gui__.debug != None):
+        self.__gui__.debug.warn("Tried to cycle with no states")
       return
     self.update((self.state + 1)% len(self.__states__))
 
+  def state_name(self) -> str:
+    return self.__states__[self.state][0]
+  
+  def get_state_names(self) -> list[str]:
+    return [state[0] for state in self.__states__]
+  
 # creates thumbnail / image import widget
 class Thumbnail():
-  widget: Button
+  __widget__: Button
+  __gui__: GUI_Controller
+  __total_thumbnails__: int = 0
   # image stuff
   image: Image.Image
   thumb_size: tuple[int, int]
   # optional fields
   text: str
-  debug: Debug | None
   accept_alpha: bool
   func_on_success: Callable | None
   # set to a copy of a new image upon import
   # useful to store a modified version of the original image
   temp_image: Image.Image
   
-  def __init__(self, root: Tk,
+  def __init__(self, gui: GUI_Controller,
                thumb_size: tuple[int,int],
+               name: str | None = None,
                text: str = "",
-               debug: Debug | None = None,
                accept_alpha: bool = False,
                func_on_success: Callable | None = None):
     # assign vars
+    self.__gui__ = gui
     self.thumb_size = thumb_size
     self.text = text
-    self.debug = debug
     self.accept_alpha = accept_alpha
     self.func_on_success = func_on_success
     # build widget
     button: Button = Button(
-      root,
+      gui.root,
       command = self.__import_image__
       )
     if(self.text != ""):
       button.config(text = self.text,
                     compound = "top")
-    self.widget = button
+    self.__widget__ = button
     # create placeholder images
     placeholder = Image.new("RGB", self.thumb_size)
     self.image = placeholder
     self.temp_image = placeholder.copy()
+    if(name == None):
+      gui.add_widget("unnamed thumbnail widget "+str(Cycle.__total_cycles__), self)
+      Thumbnail.__total_thumbnails__ += 1
+    else:
+      gui.add_widget(name, self)
     self.update_thumbnail(placeholder)
   
   # prompt user for a new image
@@ -284,15 +226,15 @@ class Thumbnail():
       return False
     # get image
     path: str = filedialog.askopenfilename(title ='Open')
-    if(self.debug != None):
+    if(self.__gui__.debug != None):
       if(path == ''):
-        self.debug.warn(self.text+(" " if self.text!="" else "")+"import cancelled")
+        self.__gui__.debug.warn(self.text+(" " if self.text!="" else "")+"import cancelled")
         return
       if(not is_valid_ext(path)):
-        self.debug.error(self.text+" invalid file type: "+path[-3:])
+        self.__gui__.debug.error(self.text+" invalid file type: "+path[-3:])
         return
       else:
-        self.debug.info(self.text+" set to "+basename(path))
+        self.__gui__.debug.info(self.text+" set to "+basename(path))
     img = Image.open(path)
     if(self.accept_alpha):
       self.image = img.copy()
@@ -305,15 +247,15 @@ class Thumbnail():
           self.image = img.copy()
         case "RGBA":
           self.image = RGBA_to_RGB(img)
-          if(self.debug != None):
-            self.debug.warn("RGBA images are not permitted, auto converted to RGB")
+          if(self.__gui__.debug != None):
+            self.__gui__.debug.warn("RGBA images are not permitted, auto converted to RGB")
         case "LA":
           self.image = LA_to_L(img)
-          if(self.debug != None):
-            self.debug.warn("LA images are not permitted, auto converted to L")
+          if(self.__gui__.debug != None):
+            self.__gui__.debug.warn("LA images are not permitted, auto converted to L")
         case _:
-          if(self.debug != None):
-            self.debug.error("Invalid image mode: "+img.mode)
+          if(self.__gui__.debug != None):
+            self.__gui__.debug.error("Invalid image mode: "+img.mode)
           return
     # update temp
     self.temp_image = self.image.copy()
@@ -331,15 +273,15 @@ class Thumbnail():
     else:
       thumb_img = new_image
     photoImage = rasterize(thumb_img)
-    self.widget.config(image = photoImage)
-    self.widget.image = photoImage
+    self.__widget__.config(image = photoImage)
+    self.__widget__.image = photoImage
     
   # place widget on the grid
   def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
     if(row == None or col == None):
-      self.widget.grid()
+      self.__widget__.grid()
     else:
-      self.widget.grid(row = row,
+      self.__widget__.grid(row = row,
                        column = col,
                        rowspan = rowspan,
                        columnspan = colspan,
@@ -347,16 +289,17 @@ class Thumbnail():
 
   # remove widget from the grid
   def grid_remove(self):
-    self.widget.grid_remove()
+    self.__widget__.grid_remove()
     
 # creates a better int input field
 class Intput():
-  widget: Entry
+  __widget__: Entry
+  __gui__: GUI_Controller
+  __total_intputs__: int = 0
   var: Variable
   # user fields
   min: int | None
   max: int | None
-  debug: Debug | None
   name: str
   invalid_color: str
   # revert displayed value to last valid value if invalid?
@@ -368,25 +311,22 @@ class Intput():
   # value checked by changed()
   last_diff: int
   
-  def __init__( self,
-                root: Tk,
-                name: str = "Intput",
+  def __init__( self, gui: GUI_Controller,
+                name: str | None = None,
                 default: int = 0,
                 min: int | None = None,
                 max: int | None = None,
-                debug: Debug | None = None,
                 justify: Literal['left', 'center', 'right'] = "center",
                 extra_validation: Callable[[int], bool] | None = None,
                 auto_fix: bool = True,
                 invalid_color: str = "red"
                 ):
     # store user inputs
+    self.__gui__ = gui
     self.min = min
     self.max = max
-    self.debug = debug
     self.extra_validation = extra_validation
     self.auto_fix = auto_fix
-    self.name = name
     self.invalid_color = invalid_color
     # setup var
     self.var = IntVar()
@@ -394,19 +334,26 @@ class Intput():
     self.value = self.min
     self.last_diff = default
     # setup widget
-    self.widget = Entry(root,
+    self.__widget__ = Entry(gui.root,
                         textvariable = self.var,
                         justify=justify
                         )
+    #set name
+    if(name == None):
+      self.name = "unnamed intput widget "+str(Intput.__total_intputs__)
+      Intput.__total_intputs__ += 1
+      gui.add_widget(self.name, self)
+    else:
+      gui.add_widget(name, self)
     # update
     self.__update__()
   
   # place widget on the grid
   def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
     if(row == None or col == None):
-      self.widget.grid()
+      self.__widget__.grid()
     else:
-      self.widget.grid(row = row,
+      self.__widget__.grid(row = row,
                        column = col,
                        rowspan = rowspan,
                        columnspan = colspan,
@@ -414,7 +361,7 @@ class Intput():
 
   # remove widget from the grid
   def grid_remove(self):
-    self.widget.grid_remove()
+    self.__widget__.grid_remove()
     
   # get the more recent vaid value
   def get(self, update: bool = True) -> int:
@@ -447,15 +394,15 @@ class Intput():
     if(self.__validate__(new_val)):
       self.__value__ = new_val
       self.var.set(new_val)
-      self.widget.config(bg="white")
+      self.__widget__.config(bg="white")
     else:
       if(self.auto_fix):
         self.var.set(self.__value__)
       else:
-        self.widget.config(bg=self.invalid_color)
-      if(self.debug != None):
-        self.debug.error("Invalid value for "+self.name+": "+str(new_val))
-    self.widget.update()
+        self.__widget__.config(bg=self.invalid_color)
+      if(self.__gui__.debug != None):
+        self.__gui__.debug.error("Invalid value for "+self.name+": "+str(new_val))
+    self.__widget__.update()
     
   # check if the current value is valid
   def __validate__(self, new_val: int) -> bool:
@@ -561,7 +508,7 @@ class TextPopup():
   __TL__: Toplevel
   __label__: Label
   __root__: Tk
-  widget: Button
+  __widget__: Button
   ### User Fields ###
   button_text: str
   popup_text: str
@@ -586,7 +533,7 @@ class TextPopup():
     if(button_text != ""):
       button.config(text = button_text,
                     compound = "top")
-    self.widget = button
+    self.__widget__ = button
 
   #show the text popup
   def show(self):
@@ -603,9 +550,9 @@ class TextPopup():
   # place widget on the grid
   def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
     if(row == None or col == None):
-      self.widget.grid()
+      self.__widget__.grid()
     else:
-      self.widget.grid(row = row,
+      self.__widget__.grid(row = row,
                        column = col,
                        rowspan = rowspan,
                        columnspan = colspan,
@@ -613,7 +560,7 @@ class TextPopup():
 
   # remove widget from the grid
   def grid_remove(self):
-    self.widget.grid_remove()
+    self.__widget__.grid_remove()
     
   def update(self, new_text: str = ""):
     if(new_text != ""):
@@ -627,11 +574,11 @@ class TextPopup():
 # GUI controller and widget manager
 class GUI_Controller():
   # list of accepted widget types
-  gui_widgets = Union[Widget, Toggle, Cycle, Thumbnail, Debug, Intput]
+  gui_widgets = Union[Widget, Cycle, Thumbnail, Debug, Intput, TextPopup]
   #region: fields
   ### Internal Fields ###
   root: Tk
-  __widgets__: dict[str, Widget | Toggle | Thumbnail | Intput]
+  __widgets__: dict[str, gui_widgets]
   ### User Fields ###
   # Mandatory
   grid_size: tuple[int,int]
@@ -641,6 +588,7 @@ class GUI_Controller():
   resizeable: bool
   debug: Debug | None
   proj: Projector_Controller
+  colors: dict[str, tuple[str,str]]
   #endregion
   
   def __init__( self,
@@ -673,7 +621,6 @@ class GUI_Controller():
     # create dictionary of widgets
     self.__widgets__ = {}
 
-  #region: widget management
   #TODO test if typing like this actually works
   def add_widget(self, name: str, widget: gui_widgets):
     # if a debug widget is added, save it as the debug field
@@ -700,12 +647,12 @@ class GUI_Controller():
     # report success
     self.debug.info("Removed widget "+name)
     self.update()
-  #endregion
   
   # update the GUI window  
   def update(self):
     self.root.update()
-  
+    
+  # start the main loop
   def mainloop(self):
     self.root.mainloop()
 
