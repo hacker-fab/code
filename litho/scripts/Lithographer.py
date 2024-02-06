@@ -296,7 +296,6 @@ pattern_button_fixed.grid(
   sticky='nesw')
 GUI.add_widget("pattern_button_fixed", pattern_button_fixed)
 
-
 #endregion
 
 #region: Flatfield
@@ -691,7 +690,13 @@ def update_displayed_image() -> None:
       show_red_focus(mode='slient')
     case 'uv_focus':
       show_uv_focus(mode='slient')
+fine_step_busy: bool = False
 def fine_step_update(axis: Literal['-x','+x','-y','+y','-z','+z']):
+  global fine_step_busy
+  if(fine_step_busy):
+    debug.warn("Fine Adjustment is busy, slow down!")
+    return
+  fine_step_busy = True
   debug.info(f"Fine Step Update: {axis}")
   # first check if the step size has changed
   if(fine_x_step_intput.changed() or fine_y_step_intput.changed() or fine_theta_step_intput.changed()):
@@ -700,6 +705,8 @@ def fine_step_update(axis: Literal['-x','+x','-y','+y','-z','+z']):
   fine_adjust.step(axis)
   # update image
   update_displayed_image()
+  # remove semaphore lock
+  fine_step_busy = False
 
 #region: Fine Adjustment Position
 def set_and_update_fine_adjustment() -> None:
