@@ -1179,13 +1179,13 @@ GUI.add_widget("uv_focus_rgb_text", uv_focus_rgb_text)
 
 uv_focus_red_cycle: Cycle = Cycle(gui=GUI, name="uv_focus_red_cycle")
 uv_focus_red_cycle.add_state(text = "Red")
-uv_focus_red_cycle.add_state(text = "Red", colors=("blackblack","light pink"))
+uv_focus_red_cycle.add_state(text = "Red", colors=("black","light pink"))
 uv_focus_red_cycle.update(0)
 uv_focus_red_cycle.grid(pattern_row+options_row+8,pattern_col+options_col+1)
 
 uv_focus_green_cycle: Cycle = Cycle(gui=GUI, name="uv_focus_green_cycle")
 uv_focus_green_cycle.add_state(text = "Green")
-uv_focus_green_cycle.add_state(text = "Green", colors=("blackblack","pale green"))
+uv_focus_green_cycle.add_state(text = "Green", colors=("black","pale green"))
 uv_focus_green_cycle.update(0)
 uv_focus_green_cycle.grid(pattern_row+options_row+8,pattern_col+options_col+2)
 
