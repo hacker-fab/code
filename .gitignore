@@ -10,3 +10,6 @@
 *.STEP
 *.ALDASM
 *.stp
+
+# log files
+*.log

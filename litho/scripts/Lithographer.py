@@ -1,5 +1,6 @@
 from tkinter import Button, Label
 from tkinter.ttk import Progressbar
+from collections import namedtuple
 from PIL import  Image
 from time import sleep
 from litho_img_lib import *
@@ -33,8 +34,6 @@ GUI: GUI_Controller = GUI_Controller(grid_size = (14,11),
                                      title = "Lithographer "+VERSION,
                                      add_window_size=(0,CHIN_SIZE))
 SPACER_SIZE: int = GUI.window_size[0]//(GUI.grid_size[1]*5)
-# for row in range(GUI.grid_size[0]):
-#   GUI.root.grid_rowconfigure(row, minsize=CHIN_SIZE//(GUI.grid_size[0]-2))
 # Debugger
 debug: Debug = Debug(root=GUI.root)
 GUI.add_widget("debug", debug)
@@ -42,72 +41,143 @@ GUI.add_widget("debug", debug)
 slicer: Slicer = Slicer(tiling_pattern='snake',
                         debug=debug)
 
-#returns a color channel toggled image
-#uses patterning options to toggle color channels
-#purely a convenience function
-def toggle_pattern_channels(input_image: Image.Image) -> Image.Image:
-  return toggle_channels(input_image,
-                         pattern_red_cycle.state,
-                         pattern_green_cycle.state,
-                         pattern_blue_cycle.state)
 
-#returns modified version of input image, optionally updates thumbnail with image
-def prep_pattern(input_image: Image.Image, thumb: Thumbnail | None = None, toggle_colors: bool = False) -> Image.Image:
-  image = input_image.copy()
+# main processing function
+# will apply and reset: posterizing, flatfield, resizing, and color channels
+# is smart, so it will only apply changes if necessary
+# can specify a smart image xor a thumbnail
+# NOTE this WILL modify the input smart image
+#TODO don't actually need to reset for flatfield, just modify the alpha channel. Not worth hassle right now
+#TODO allow toggling of what processing is applied to the image
+#TODO add an option to not modify input
+def process_img(image_in: Image.Image | Smart_Image | Thumbnail) -> Image.Image:
   
-  # posterizeing
-  if(posterize_cycle.state and ((not (image.mode == 'L' or image.mode == 'LA')) or post_strength_intput.changed())):
-    # posterizing enabled, and image isn't poterized
-    debug.info("Posterizing...")
-    image = posterize(image, round((post_strength_intput.get()*255)/100))
-  elif(not posterize_cycle.state and (image.mode == 'L' or image.mode == 'LA') and thumb != None):
-    # posterizing disabled, but image is posterized
-      debug.info("Resetting Posterizing...")
-      thumb.temp_image = thumb.image
-      thumb.update_thumbnail(thumb.image)
-      image = thumb.image
+  # would use a switch, but python's match sucks and is impossible to use
+  img: Smart_Image
+  if(type(image_in) == Thumbnail):
+    img = image_in.image
+  elif(type(image_in) == Smart_Image):
+    img = image_in
+  elif(type(image_in) == Image.Image):
+    img = Smart_Image(image_in)
   
-  # flatfield correction
-  if(flatfield_cycle.state and (image.mode == 'L' or image.mode == 'RGB' or 
-     FF_strength_intput.changed())):
-    debug.info("Applying flatfield corretion...")
-    alpha_channel = convert_to_alpha_channel(flatfield_thumb.image,
-                                             new_scale=dec_to_alpha(FF_strength_intput.get()),
-                                             target_size=image.size,
-                                             downsample_target=540)
-    image.putalpha(alpha_channel)
-  elif(not flatfield_cycle.state):
-    if(image.mode == 'RGBA' and thumb != None):
-      debug.info("Removing flatfield corretion...")
-      thumb.temp_image = RGBA_to_RGB(thumb.temp_image)
-      thumb.update_thumbnail(thumb.temp_image)
-      image = thumb.image
-    if(image.mode == 'LA' and thumb != None):
-      debug.info("Removing flatfield corretion...")
-      thumb.temp_image = LA_to_L(thumb.temp_image)
-      thumb.update_thumbnail(thumb.temp_image)
-      image = thumb.image
+  #region: convenience vars
+  color_channels: tuple#[bool,bool,bool] would type properly, but python throws a hissy fit if I do
+  match img.get("name"):
+    case "pattern":
+      color_channels = (pattern_red_cycle.state, pattern_green_cycle.state, pattern_blue_cycle.state)
+    case "red focus":
+      color_channels = (red_focus_red_cycle.state, red_focus_green_cycle.state, red_focus_blue_cycle.state)
+    case "uv focus":
+      color_channels = (uv_focus_red_cycle.state, uv_focus_green_cycle.state, uv_focus_blue_cycle.state)
+    case _:
+      if(type(image_in)!=Image.Image):
+        debug.warn("Unrecognized / unnamed smart image")
+      color_channels = (True, True, True)
+  saved_alpha: Image.Image | None = None
+  
+  # states of each type of processing in the following format:
+  # (processing enabled, option changed, applied to image)
+  State = namedtuple("State", ["enabled", "changed", "applied"])
+  posterize_state = State(bool(posterize_cycle.state), post_strength_intput.changed(), img.get("posterize", False))
+  flatfield_state = State(bool(flatfield_cycle.state), FF_strength_intput.changed(), img.get("flatfield", False))
+  #endregion
+  
+  #region: resetting
+  
+  # reset matrix  | enabled changed applied |
+  # --------------|-------------------------|
+  # reset + apply |    o       o       o    |
+  #         apply |    o       -       x    |
+  #   pass / save |    o       x       o    |
+  #         reset |    x       -       o    |
+  #          pass |    x       -       x    |
+  
+  # if flatfield settings haven't changed, no need to recalculate. Extract the alpha channel and reapply later
+  if(flatfield_state.enabled and not flatfield_state.changed and flatfield_state.applied and
+     (img.mode() == "RGBA" or img.mode() == "LA")):
+    saved_alpha = img.image.getchannel('A')
+    
+  # this is ugly but lets debug messages state what caused the reset
+  reset: bool = False
+  if(posterize_state.enabled and posterize_state.changed and posterize_state.applied):
+    debug.info("Posterizing settings changed, resetting...")
+    reset = True
+  elif(not posterize_state.enabled and posterize_state.applied):
+    debug.info("Posterizing disabled, resetting...")
+    reset = True
+  elif(flatfield_state.enabled and flatfield_state.changed and flatfield_state.applied):
+    debug.info("Flatfield settings changed, resetting...")
+    reset = True
+  elif(not flatfield_state.enabled and flatfield_state.applied):
+    debug.info("Flatfield disabled, resetting...")
+    reset = True
+  elif(img.get("color", (True, True, True)) != color_channels):
+    debug.info("Color settings changed, resetting...")
+    reset = True
+  
+  # reset
+  if(reset):
+    img.reset()
       
-  # resizeing
-  if(image.size != fit_image(image, GUI.proj.size())):
-    debug.info("Resizing...")
-    image = image.resize(fit_image(image, GUI.proj.size()), Image.Resampling.LANCZOS)
+  #endregion
   
-  # update thumbnail
-  # MUST be before color channel toggling
-  if(thumb != None):
-      thumb.temp_image = image
-      thumb.update_thumbnail(image)
+  #region: processing
   
-  # color channel toggling
-  if(toggle_colors):
+  #TODO test what order is fastest
+  # need to apply if:
+  # enabled
+  # and
+  #   reset
+  #   or
+  #   changed or not applied
+  
+  # posterize
+  if(posterize_state.enabled and 
+     (reset or posterize_state.changed or not posterize_state.applied)):
+    debug.info("Posterizing...")
+    img.image = posterize(img.image, round((post_strength_intput.get()*255)/100))
+    img.add("posterize", True)
+  
+  # color channel toggling (must be after posterizing)
+  if(reset or img.get("color", (True, True, True)) != color_channels):
     debug.info("Toggling color channels...")
-    image = toggle_pattern_channels(image)
-    if(thumb != None):
-      thumb.update_thumbnail(image)
+    img.image = toggle_channels(img.image, *color_channels)
+    img.add("color", color_channels)
   
-  return image
-#endregion
+  # early flatfield
+  if(flatfield_state.enabled and 
+     (reset or flatfield_state.changed or not flatfield_state.applied)):
+    # we need to apply flatfield, check if saved alpha works
+    if(saved_alpha != None and saved_alpha.size == img.size()):
+      debug.info("Applying flatfield correction...")
+      img.image.putalpha(saved_alpha)
+      img.add("flatfield", True)
+  
+  # resizeing
+  if(img.size() != fit_image(img.image, GUI.proj.size())):
+    debug.info("Resizing...")
+    img.image = img.image.resize(fit_image(img.image, GUI.proj.size()), Image.Resampling.LANCZOS)
+  
+  # flatfield and check to make sure it wasn't applied early
+  if(flatfield_state.enabled and not img.get("flatfield", False) and
+     (reset or flatfield_state.changed or not flatfield_state.applied)):
+    debug.info("Applying flatfield correction...")
+    if(saved_alpha != None and saved_alpha.size == img.size()):
+      img.image.putalpha(saved_alpha)
+    else:
+      alpha_channel = convert_to_alpha_channel(img.image,
+                                               new_scale=dec_to_alpha(FF_strength_intput.get()),
+                                               target_size=img.size(),
+                                               downsample_target=540)
+      img.image.putalpha(alpha_channel)
+    img.add("flatfield", True)
+  
+  #endregion
+  
+  if(type(image_in) == Thumbnail):
+    image_in.update()
+  return img.image
 
 #region: Camera and progress bars
 camera_placeholder = rasterize(Image.new('RGB', (GUI.window_size[0],(GUI.window_size[0]*9)//16), (0,0,0)))
@@ -233,7 +303,7 @@ import_col: int = 0
 
 #TODO: optimize so properties aren't reset unnecessarily
 showing_state: Literal['pattern','red_focus','uv_focus','flatfield', 'clear'] = 'clear'
-def highlight_button(button: Button) -> None:
+def highlight_button(button: Button | None) -> None:
   global showing_state
   if(button == pattern_button_fixed):
     pattern_button_fixed.config(bg="gray", fg="white")
@@ -258,13 +328,13 @@ def highlight_button(button: Button) -> None:
 
 #region: Pattern
 def pattern_import_func() -> None:
-  slicer.update(image=pattern_thumb.image,
+  pattern_thumb.image.add("name", "pattern", True)
+  process_img(pattern_thumb)
+  slicer.update(image=pattern_thumb.image.image,
                 horizontal_tiles=slicer_horiz_intput.get(),
                 vertical_tiles=slicer_vert_intput.get())
-  pattern_thumb.temp_image = prep_pattern(slicer.image())
-  image: Image.Image = toggle_pattern_channels(pattern_thumb.temp_image)
-  pattern_thumb.update_thumbnail(image)
-  raster = rasterize(image.resize(fit_image(image, THUMBNAIL_SIZE), Image.Resampling.LANCZOS))
+  # pattern_thumb.temp_image = slicer.image()
+  raster = rasterize(slicer.image().resize(fit_image(slicer.image(), THUMBNAIL_SIZE), Image.Resampling.NEAREST))
   next_tile_image.config(image=raster)
   next_tile_image.image = raster
   
@@ -278,13 +348,12 @@ pattern_thumb.grid(import_row,import_col, rowspan=4)
 
 def show_pattern_fixed(mode: Literal['update', 'slient']='update') -> None:
   highlight_button(pattern_button_fixed)
-  pattern_thumb.temp_image = prep_pattern(pattern_thumb.temp_image)
-  image: Image.Image = toggle_pattern_channels(pattern_thumb.temp_image)
+  process_img(pattern_thumb)
   if(mode == 'update'):
-    pattern_thumb.update_thumbnail(image)
+    pattern_thumb.update()
     debug.info("Showing Pattern")
-    # apply affine transformation
-  GUI.proj.show(transform_image(image))
+  # apply affine transformation
+  GUI.proj.show(transform_image(pattern_thumb.image.image))
 pattern_button_fixed: Button = Button(
   GUI.root,
   text = 'Show Pattern',
@@ -300,7 +369,8 @@ GUI.add_widget("pattern_button_fixed", pattern_button_fixed)
 #region: Flatfield
 # return a guess for correction intensity, 0 to 50 %
 def guess_alpha():
-  brightness: tuple[int,int] = get_brightness_range(flatfield_thumb.image, downsample_target=480)
+  flatfield_thumb.image.add("name", "flatfield", True)
+  brightness: tuple[int,int] = get_brightness_range(flatfield_thumb.image.image, downsample_target=480)
   FF_strength_intput.set(round(((brightness[1]-brightness[0])*100)/510))
 flatfield_thumb: Thumbnail = Thumbnail( 
   gui=GUI,
@@ -313,13 +383,13 @@ flatfield_thumb.grid(import_row,import_col+1, rowspan=4)
 def show_flatfield(mode: Literal['update', 'slient']='update') -> None:
   highlight_button(flatfield_button)
   # resizeing
-  image: Image.Image = flatfield_thumb.temp_image
+  image: Image.Image = flatfield_thumb.image.image
   if(image.size != fit_image(image, GUI.proj.size())):
     debug.info("Resizing image for projection...")
-    flatfield_thumb.temp_image = image.resize(fit_image(image, GUI.proj.size()), Image.Resampling.LANCZOS)
+    flatfield_thumb.image.image = image.resize(fit_image(image, GUI.proj.size()), Image.Resampling.LANCZOS)
   if(mode == 'update'):
     debug.info("Showing flatfield image")
-  GUI.proj.show(transform_image(flatfield_thumb.temp_image))
+  GUI.proj.show(transform_image(flatfield_thumb.image.image))
 
 flatfield_button: Button = Button(
   GUI.root,
@@ -337,37 +407,39 @@ GUI.add_widget("flatfield_button", flatfield_button)
 red_focus_thumb: Thumbnail = Thumbnail(
   gui=GUI,
   name="red_focus_thumb",
-  thumb_size=THUMBNAIL_SIZE)
+  thumb_size=THUMBNAIL_SIZE,
+  func_on_success=lambda: red_focus_thumb.image.add("name", "red focus", True))
 red_focus_thumb.grid(import_row+5,import_col, rowspan=4)
 
+#TODO replace with process_img
 def show_red_focus(mode: Literal['update', 'slient']='update') -> None:
   highlight_button(red_focus_button)
   # posterizeing
-  image: Image.Image = red_focus_thumb.temp_image
+  image: Image.Image = red_focus_thumb.image.image
   if(posterize_cycle.state and (image.mode != 'L' or post_strength_intput.changed())):
     debug.info("Posterizing image...")
-    red_focus_thumb.temp_image = posterize(red_focus_thumb.temp_image, round((post_strength_intput.get()*255)/100))
+    red_focus_thumb.image.image = posterize(red_focus_thumb.image.image, round((post_strength_intput.get()*255)/100))
     if(mode == 'update'):
-      red_focus_thumb.update_thumbnail(red_focus_thumb.temp_image)
+      red_focus_thumb.update()
   elif(not posterize_cycle.state and image.mode == 'L'):
     debug.info("Resetting image...")
-    red_focus_thumb.temp_image = red_focus_thumb.image
+    red_focus_thumb.image.reset()
     if(mode == 'update'):
-      red_focus_thumb.update_thumbnail(red_focus_thumb.temp_image)
+      red_focus_thumb.update()
   # resizeing
-  image: Image.Image = red_focus_thumb.temp_image
+  image: Image.Image = red_focus_thumb.image.image
   if(image.size != fit_image(image, GUI.proj.size())):
     debug.info("Resizing image for projection...")
-    red_focus_thumb.temp_image = image.resize(fit_image(image, GUI.proj.size()), Image.Resampling.LANCZOS)
+    red_focus_thumb.image.image = image.resize(fit_image(image, GUI.proj.size()), Image.Resampling.LANCZOS)
   # color channel toggling
   if(not (uv_focus_red_cycle.state and uv_focus_green_cycle.state and uv_focus_blue_cycle.state)):
     debug.info("Toggling color channels...")
-    image: Image.Image = toggle_channels (red_focus_thumb.temp_image,
+    image: Image.Image = toggle_channels (red_focus_thumb.image.image,
                                           red_focus_red_cycle.state,
                                           red_focus_green_cycle.state,
                                           red_focus_blue_cycle.state)
     if(mode == 'update'):
-      red_focus_thumb.update_thumbnail(image)
+      red_focus_thumb.update(image)
   if(mode == 'update'):
     debug.info("Showing red focus image")
   GUI.proj.show(transform_image(image))
@@ -386,25 +458,26 @@ GUI.add_widget("red_focus_button", red_focus_button)
 uv_focus_thumb: Thumbnail = Thumbnail(
   gui=GUI,
   name="uv_focus_thumb",
-  thumb_size=THUMBNAIL_SIZE)
+  thumb_size=THUMBNAIL_SIZE,
+  func_on_success = lambda: uv_focus_thumb.image.add("name", "uv focus", True))
 uv_focus_thumb.grid(import_row+5,import_col+1, rowspan=4)
 
 def show_uv_focus(mode: Literal['update', 'slient']='update') -> None:
   highlight_button(uv_focus_button)
   # resizeing
-  image: Image.Image = uv_focus_thumb.temp_image
+  image: Image.Image = uv_focus_thumb.image.image
   if(image.size != fit_image(image, GUI.proj.size())):
     debug.info("Resizing image for projection...")
-    uv_focus_thumb.temp_image = image.resize(fit_image(image, GUI.proj.size()), Image.Resampling.LANCZOS)
+    uv_focus_thumb.image.image = image.resize(fit_image(image, GUI.proj.size()), Image.Resampling.LANCZOS)
   # color channel toggling
   if(not (uv_focus_red_cycle.state and uv_focus_green_cycle.state and uv_focus_blue_cycle.state)):
     debug.info("Toggling color channels...")
-    image: Image.Image = toggle_channels (uv_focus_thumb.temp_image,
+    image: Image.Image = toggle_channels (uv_focus_thumb.image.image,
                                           uv_focus_red_cycle.state,
                                           uv_focus_green_cycle.state,
                                           uv_focus_blue_cycle.state)
     if(mode == 'update'):
-      uv_focus_thumb.update_thumbnail(image)
+      uv_focus_thumb.update(image)
   if(mode == 'update'):
     debug.info("Showing UV focus image")
   GUI.proj.show(transform_image(image))
@@ -1313,7 +1386,7 @@ def change_patterning_status(new_status: Literal['idle','patterning', 'aborting'
             command=begin_patterning)
           pattern_status = 'idle'
         case 'aborting':
-          # abort button was pressed while patterning, change global status and print warn
+          # abort button was pressed while patterning, change global status and warn
           pattern_status = 'aborting'
           GUI.proj.clear()
           debug.warn("aborting patterning...")
@@ -1351,15 +1424,13 @@ def begin_patterning():
     #if at end of slicer, use blank image
     if(preview == None):
       preview = Image.new('RGB', THUMBNAIL_SIZE)
-    else:
-      preview = prep_pattern(preview, toggle_colors=True)
-    raster = rasterize(preview.resize(fit_image(preview, THUMBNAIL_SIZE), Image.Resampling.LANCZOS))
+    raster = rasterize(preview.resize(fit_image(preview, THUMBNAIL_SIZE), Image.Resampling.NEAREST))
     next_tile_image.config(image=raster)
     next_tile_image.image = raster
   
   global pattern_status
   debug.info("Slicing pattern...")
-  slicer.update(image=pattern_thumb.image,
+  slicer.update(image=pattern_thumb.image.image,
                 horizontal_tiles=slicer_horiz_intput.get(),
                 vertical_tiles=slicer_vert_intput.get(),
                 tiling_pattern=slicer.pattern_list[slicer_pattern_cycle.state])
@@ -1375,9 +1446,11 @@ def begin_patterning():
     # get patterning image
     image: Image.Image
     if(slicer.tile_count() == 1):
-      image = prep_pattern(pattern_thumb.temp_image, thumb=pattern_thumb, toggle_colors=True)
+      image = process_img(pattern_thumb)
     else:
-      image = prep_pattern(slicer.image(), toggle_colors=True)
+      img = Smart_Image(slicer.image())
+      img.add("name", "pattern")
+      image = process_img(img)
     image = transform_image(image)
     #TODO apply fine adjustment vector to image
     #TODO remove once camera is implemented
@@ -1489,6 +1562,118 @@ right_area.jump(0)
 
 #endregion
 
+def benchmark():
+  from sys import exit
+  from numpy import random
+  from time import time
+  from os import path, getcwd
+  from io import TextIOWrapper
+  from datetime import datetime 
+  
+  debug.warn("!!! Benchmarking !!!")
+  center_area.jump(1)
+  #options
+  iterations = 5
+  target_res_size = (3840, 2160) #4K
+  processing_repeats: int = 3
+  
+  #region: create and open log file
+  log_file: TextIOWrapper
+  if(path.exists(path.join(getcwd(), "benchmark.log"))):
+    log_file = open("benchmark.log", "a")
+    log_file.write("\n\n")
+  else:
+    log_file = open("benchmark.log", "w")
+    log_file.write("Lithographer Benchmark Log\n\n")
+  log_file.write("Benchmark\n")
+  log_file.write("| "+str(datetime.now())+"\n")
+  log_file.write("| Lithographer Version: "+str(VERSION)+"\n")
+  log_file.write("| Iterations: "+str(iterations)+"\n")
+  log_file.write("| Resolution: "+str(target_res_size)+"\n")
+  log_file.write("| Processing Repeats: "+str(processing_repeats)+"\n")
+  log_file.flush()
+  #endregion
+  
+  #region: Test image generation
+  log_file.write("Image Generation\n| ")
+  images = []
+  times = []
+  for i in range(iterations):
+    temp = time()
+    images.append(Image.fromarray((random.rand(target_res_size[1],target_res_size[0],3)*255).astype('uint8')).convert('RGB'))
+    times.append(time()-temp)
+    log_file.write("#")
+    log_file.flush()
+  log_file.write("\n")
+  log_file.write("| avg: "+str(round((sum(times)*1000)/(iterations)))+" ms\n")
+  log_file.write("| max: "+str(round((max(times)*1000)))+" ms\n")
+  log_file.write("| min: "+str(round((min(times)*1000)))+" ms\n")
+  log_file.flush()
+  #endregion
+  
+  #region: Image processing
+  log_file.write("Image processing\n| ")
+  posterize_cycle.update(1)
+  flatfield_cycle.update(1)
+  fine_adjustment_cycle.update(1)
+  processed_times = []
+  proj_size = GUI.proj.size()
+  proj_size = (proj_size[0]//2, proj_size[1]//2)
+  for i in range(processing_repeats):
+    processed_times.append([])
+  # process all the images with fully random settings
+  for image in images:
+    #randomize transform amounts
+    border_size_intput.set(random.randint(0,99))
+    fine_x_intput.set(random.randint(-proj_size[0], proj_size[0]))
+    fine_y_intput.set(random.randint(-proj_size[1], proj_size[1]))
+    fine_theta_intput.set(random.randint(-360,360))
+    set_and_update_fine_adjustment()
+    #randomize posterize cutoff
+    post_strength_intput.set(random.randint(0,99))
+    # randomize flatfield strength
+    FF_strength_intput.set(random.randint(0,99))  
+    #randomize color channels
+    pattern_red_cycle.update(random.randint(0,2))
+    pattern_green_cycle.update(random.randint(0,2))
+    pattern_blue_cycle.update(random.randint(0,2))
+    #set thumb image to this image
+    pattern_thumb.image = Smart_Image(image)
+    pattern_thumb.image.add("name", "pattern", True)
+    pattern_thumb.update()
+    #apply processing
+    for i in range(processing_repeats):
+      temp = time()
+      GUI.proj.show(transform_image(process_img(pattern_thumb)))
+      processed_times[i].append(time()-temp)
+    log_file.write("#")
+    log_file.flush()
+  log_file.write("\n")
+  GUI.proj.clear()
+  log_file.write("| First processing:\n")
+  log_file.write("| | avg: "+str(round((sum(processed_times[0])*1000)/(iterations)))+" ms\n")
+  log_file.write("| | max: "+str(round((max(processed_times[0])*1000)))+" ms\n")
+  log_file.write("| | min: "+str(round((min(processed_times[0])*1000)))+" ms\n")
+  if(processing_repeats > 1):
+    # merge the times for the 3rd+ processing
+    repeat_times = []
+    for image in range(iterations):
+      image_sum = 0
+      for rep in range(1, processing_repeats):
+        image_sum += processed_times[rep][image]
+      repeat_times.append(image_sum/(processing_repeats-1))
+    log_file.write("| repeat processing:\n")
+    log_file.write("| | avg: "+str(round((sum(repeat_times)*1000)/(iterations)))+" ms\n")
+    log_file.write("| | max: "+str(round((max(repeat_times)*1000)))+" ms\n")
+    log_file.write("| | min: "+str(round((min(repeat_times)*1000)))+" ms\n")
+  log_file.flush()
+  #endregion
+  
+  log_file.close()
+  GUI.proj.__TL__.destroy()
+  GUI.root.quit()
+  exit()
+benchmark()
+
 debug.info("Debug info will appear here")
 GUI.mainloop()
-

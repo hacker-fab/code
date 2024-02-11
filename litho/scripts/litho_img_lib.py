@@ -71,7 +71,6 @@ def center_crop(image: Image.Image, crop_size: tuple[int,int]) -> Image.Image:
   
   assert(crop_size[0]>0 and crop_size[1]>0)
   
-  
   # resample image to fill desired size
   cropped = cropped.resize(fill_image(image, crop_size), resample=Image.Resampling.LANCZOS)
   
@@ -125,7 +124,7 @@ def get_brightness_range(image: Image.Image,
   # downsample if specified
   if(downsample_target > 0):
     while img_copy.width > downsample_target or img_copy.height > downsample_target:
-      img_copy = img_copy.resize((img_copy.width//2, img_copy.height//2), resample=Image.Resampling.LANCZOS)
+      img_copy = img_copy.resize((img_copy.width//2, img_copy.height//2), resample=Image.Resampling.NEAREST)
   # get brightness range
   brightness: list[int] = [255,0]
   for col in range(img_copy.width):
@@ -179,7 +178,7 @@ def convert_to_alpha_channel(input_image: Image.Image,
       target_size = mask.size
     # downsample
     while mask.width > downsample_target or mask.height > downsample_target:
-      mask = mask.resize((mask.width//2, mask.height//2), resample=Image.Resampling.LANCZOS)
+      mask = mask.resize((mask.width//2, mask.height//2), resample=Image.Resampling.NEAREST)
     # rescale
     mask = rescale(mask, new_scale)
     # resample to desired dimentions

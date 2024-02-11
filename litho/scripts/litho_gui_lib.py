@@ -11,6 +11,7 @@ from typing import Callable, Literal, Union
 # widget to display info, errors, warning, and text
 class Debug():
   __widget__: Label
+  __enabled__: bool
   text_color: tuple[str, str]
   warn_color: tuple[str, str]
   err_color:  tuple[str, str]
@@ -20,6 +21,7 @@ class Debug():
                text_color: tuple[str, str] = ("black", "white"),
                warn_color: tuple[str, str] = ("black", "orange"),
                err_color:  tuple[str, str] = ("white", "red")):
+    self.__enabled__ = True
     self.text_color = text_color
     self.warn_color = warn_color
     self.err_color = err_color
@@ -32,21 +34,35 @@ class Debug():
   
   # show text in the debug widget
   def info(self, text:str):
+    if(not self.__enabled__):
+      return
     self.__widget__.config(text = text)
     self.__set_color__(self.text_color)
     print("i "+text)
   
   # show warning in the debug widget
   def warn(self, text:str):
+    if(not self.__enabled__):
+      return
     self.__widget__.config(text = text)
     self.__set_color__(self.warn_color)
     print("w "+text)
     
   # show error in the debug widget
   def error(self, text:str):
+    if(not self.__enabled__):
+      return
     self.__widget__.config(text = text)
     self.__set_color__(self.err_color)
     print("e "+text)
+  
+  # enable prints
+  def enable(self):
+    self.__enabled__ = True
+    
+  # disable prints
+  def disable(self):
+    self.__enabled__ = False
   
   # place widget on the grid
   def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
@@ -169,15 +185,12 @@ class Thumbnail():
   __gui__: GUI_Controller
   __total_thumbnails__: int = 0
   # image stuff
-  image: Image.Image
+  image: Smart_Image
   thumb_size: tuple[int, int]
   # optional fields
   text: str
   accept_alpha: bool
   func_on_success: Callable | None
-  # set to a copy of a new image upon import
-  # useful to store a modified version of the original image
-  temp_image: Image.Image
   
   def __init__(self, gui: GUI_Controller,
                thumb_size: tuple[int,int],
@@ -202,14 +215,13 @@ class Thumbnail():
     self.__widget__ = button
     # create placeholder images
     placeholder = Image.new("RGB", self.thumb_size)
-    self.image = placeholder
-    self.temp_image = placeholder.copy()
+    self.image = Smart_Image(placeholder)
     if(name == None):
       gui.add_widget("unnamed thumbnail widget "+str(Cycle.__total_cycles__), self)
       Thumbnail.__total_thumbnails__ += 1
     else:
       gui.add_widget(name, self)
-    self.update_thumbnail(placeholder)
+    self.update(placeholder)
   
   # prompt user for a new image
   def __import_image__(self):
@@ -231,48 +243,55 @@ class Thumbnail():
         self.__gui__.debug.warn(self.text+(" " if self.text!="" else "")+"import cancelled")
         return
       if(not is_valid_ext(path)):
-        self.__gui__.debug.error(self.text+" invalid file type: "+path[-3:])
+        self.__gui__.debug.error(self.text+(" " if self.text!="" else "")+"invalid file type: "+path[-3:])
         return
       else:
-        self.__gui__.debug.info(self.text+" set to "+basename(path))
-    img = Image.open(path)
-    if(self.accept_alpha):
-      self.image = img.copy()
-    else:
-      # ensure image is RGB or L
-      match img.mode:
-        case "RGB":
-          self.image = img.copy()
-        case "L":
-          self.image = img.copy()
-        case "RGBA":
-          self.image = RGBA_to_RGB(img)
+        self.__gui__.debug.info(self.text+(" " if self.text!="" else "")+"set to "+basename(path))
+    img = Image.open(path).copy()
+    # check type
+    # ensure image is RGB or L
+    match img.mode:
+      case "RGB":
+        pass
+      case "L":
+        pass
+      case "RGBA":
+        if(not self.accept_alpha):
+          img = RGBA_to_RGB(img)
           if(self.__gui__.debug != None):
             self.__gui__.debug.warn("RGBA images are not permitted, auto converted to RGB")
-        case "LA":
-          self.image = LA_to_L(img)
+      case "LA":
+        if(not self.accept_alpha):
+          img = LA_to_L(img)
           if(self.__gui__.debug != None):
             self.__gui__.debug.warn("LA images are not permitted, auto converted to L")
-        case _:
-          if(self.__gui__.debug != None):
-            self.__gui__.debug.error("Invalid image mode: "+img.mode)
-          return
-    # update temp
-    self.temp_image = self.image.copy()
+      case _:
+        if(self.__gui__.debug != None):
+          self.__gui__.debug.error("Invalid image mode: "+img.mode)
+        return
+    # update image
+    self.image = Smart_Image(img)
+    self.image.add("path", path, True)
     # update
-    self.update_thumbnail(self.image)
+    self.update()
     # call optional func if specified
     if(self.func_on_success != None):
       self.func_on_success()
     
-  # update the thumbnail, but not original image
-  def update_thumbnail(self, new_image: Image.Image):
-    new_size: tuple[int, int] = fit_image(new_image, win_size=self.thumb_size)
-    if(new_size != new_image.size):
-      thumb_img = new_image.resize(new_size, Image.Resampling.LANCZOS)
+  # update the thumbnail, optionally specify a new image
+  # new image will only apply to preview, not stored smart image
+  def update(self, new_image: Image.Image | None = None):
+    img: Image.Image
+    if(new_image == None):
+      img = self.image.image
     else:
-      thumb_img = new_image
-    photoImage = rasterize(thumb_img)
+      img = new_image
+    new_size: tuple[int, int] = fit_image(img, win_size=self.thumb_size)
+    
+    if(new_size != img.size):
+      img = img.resize(new_size, Image.Resampling.NEAREST)
+    
+    photoImage = rasterize(img)
     self.__widget__.config(image = photoImage)
     self.__widget__.image = photoImage
     
@@ -1046,5 +1065,56 @@ class Smart_Area():
   def index(self) -> int:
     return self.__index__
 
+# a widget that stores an image and various other useful info
+# intentionally no way to change original image after creation
+# to avoid confusion
+class Smart_Image():
+  __original_image__: Image.Image
+  __permanent_attr__: dict
+  __attr__: dict
+  image: Image.Image
+  
+  def __init__(self, image: Image.Image, perm_attr: dict = {}):
+    self.__original_image__ = image.copy()
+    self.image = image.copy()
+    self.__permanent_attr__ = perm_attr
+    self.__attr__ = {}
+  
+  # permanent attributes are reapplied on reset
+  def add(self, key, value, permanent: bool = False):
+    self.__attr__[key] = value
+    if(permanent):
+      self.__permanent_attr__[key] = value
+      
+  def get(self, key, default = None):
+    return self.__attr__.get(key, default)
 
-
+  def pop(self, key, default = None):
+    return self.__attr__.pop(key, default)
+  
+  def copy(self):
+    new_img = Smart_Image(self.image.copy())
+    new_img.__original_image__ = self.__original_image__.copy()
+    new_img.__permanent_attr__ = self.__permanent_attr__.copy()
+    new_img.__attr__ = self.__attr__.copy()
+    new_img.image = self.image.copy()
+    return new_img
+    
+  # reset image to original
+  # resets all attributes except those specified in keep_attr
+  def reset(self, keep_attr: list = []):
+    self.image = self.__original_image__.copy()
+    new_attr = self.__permanent_attr__.copy()
+    for key in keep_attr:
+      if(self.__attr__.get(key, None) != None):
+        new_attr[key] = self.__attr__[key]
+    self.__attr__ = new_attr
+  
+  # return image size
+  def size(self) -> tuple[int,int]:
+    return self.image.size
+  
+  # return image mode
+  def mode(self) -> str:
+    return self.image.mode
+  
