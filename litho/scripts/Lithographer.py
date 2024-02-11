@@ -1605,8 +1605,8 @@ def benchmark():
     log_file.write("#")
     log_file.flush()
   log_file.write("\n")
-  log_file.write("| avg: "+str(round((sum(times)*1000)/(iterations)))+" ms\n")
   log_file.write("| max: "+str(round((max(times)*1000)))+" ms\n")
+  log_file.write("| avg: "+str(round((sum(times)*1000)/(iterations)))+" ms\n")
   log_file.write("| min: "+str(round((min(times)*1000)))+" ms\n")
   log_file.flush()
   #endregion
@@ -1651,8 +1651,8 @@ def benchmark():
   log_file.write("\n")
   GUI.proj.clear()
   log_file.write("| First processing:\n")
-  log_file.write("| | avg: "+str(round((sum(processed_times[0])*1000)/(iterations)))+" ms\n")
   log_file.write("| | max: "+str(round((max(processed_times[0])*1000)))+" ms\n")
+  log_file.write("| | avg: "+str(round((sum(processed_times[0])*1000)/(iterations)))+" ms\n")
   log_file.write("| | min: "+str(round((min(processed_times[0])*1000)))+" ms\n")
   if(processing_repeats > 1):
     # merge the times for the 3rd+ processing
@@ -1663,8 +1663,8 @@ def benchmark():
         image_sum += processed_times[rep][image]
       repeat_times.append(image_sum/(processing_repeats-1))
     log_file.write("| repeat processing:\n")
-    log_file.write("| | avg: "+str(round((sum(repeat_times)*1000)/(iterations)))+" ms\n")
     log_file.write("| | max: "+str(round((max(repeat_times)*1000)))+" ms\n")
+    log_file.write("| | avg: "+str(round((sum(repeat_times)*1000)/(iterations)))+" ms\n")
     log_file.write("| | min: "+str(round((min(repeat_times)*1000)))+" ms\n")
   log_file.flush()
   #endregion
