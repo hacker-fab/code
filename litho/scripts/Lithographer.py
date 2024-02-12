@@ -1673,7 +1673,7 @@ def benchmark():
   GUI.proj.__TL__.destroy()
   GUI.root.quit()
   exit()
-benchmark()
+# benchmark()
 
 debug.info("Debug info will appear here")
 GUI.mainloop()
