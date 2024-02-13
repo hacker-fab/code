@@ -728,9 +728,9 @@ center_area.add_func(0,bind_stage_controls, unbind_stage_controls)
 fine_adjust: Stage_Controller = Stage_Controller(
   debug=debug,
   verbosity=1)
-def transform_image(image: Image.Image) -> Image.Image:
+def transform_image(image: Image.Image, theta_factor: float = 0.1) -> Image.Image:
   if(fine_adjustment_cycle.state == 1):
-    return better_transform(image, (*fine_adjust.xy(), (2*pi*fine_adjust.z())/360), GUI.proj.size(), border_size_intput.get())
+    return better_transform(image, (*fine_adjust.xy(), (theta_factor*2*pi*fine_adjust.z())/360), GUI.proj.size(), border_size_intput.get())
   return image
 def update_displayed_image() -> None:
   match showing_state:
