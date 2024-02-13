@@ -29,11 +29,11 @@ from litho_gui_lib import *
 VERSION: str = "1.?.?"
 #region: setup 
 THUMBNAIL_SIZE: tuple[int,int] = (160,90)
-CHIN_SIZE: int = 400
+CHIN_SIZE: int = 0
 GUI: GUI_Controller = GUI_Controller(grid_size = (14,11),
                                      title = "Lithographer "+VERSION,
                                      add_window_size=(0,CHIN_SIZE))
-SPACER_SIZE: int = GUI.window_size[0]//(GUI.grid_size[1]*5)
+SPACER_SIZE: int = 0#GUI.window_size[0]//(GUI.grid_size[1])
 # Debugger
 debug: Debug = Debug(root=GUI.root)
 GUI.add_widget("debug", debug)
@@ -180,17 +180,17 @@ def process_img(image_in: Image.Image | Smart_Image | Thumbnail) -> Image.Image:
   return img.image
 
 #region: Camera and progress bars
-camera_placeholder = rasterize(Image.new('RGB', (GUI.window_size[0],(GUI.window_size[0]*9)//16), (0,0,0)))
-camera: Label = Label(
-  GUI.root,
-  image=camera_placeholder
-  )
-camera.grid(
-  row = 0,
-  column = 0,
-  columnspan = GUI.grid_size[1],
-  sticky='nesw')
-GUI.add_widget("camera", camera)
+# camera_placeholder = rasterize(Image.new('RGB', (GUI.window_size[0],(GUI.window_size[0]*9)//16), (0,0,0)))
+# camera: Label = Label(
+#   GUI.root,
+#   image=camera_placeholder
+#   )
+# camera.grid(
+#   row = 0,
+#   column = 0,
+#   columnspan = GUI.grid_size[1],
+#   sticky='nesw')
+# GUI.add_widget("camera", camera)
 
 # overall pattern progress bar
 pattern_progress: Progressbar = Progressbar(
@@ -1466,10 +1466,10 @@ def begin_patterning():
     stage.unlock()
     if(pattern_status == 'aborting'):
       break
-    if(result):
-      # TODO remove once camera is implemented
-      camera.config(image=camera_placeholder)
-      camera.image = camera_placeholder
+    # if(result):
+    #   # TODO remove once camera is implemented
+    #   camera.config(image=camera_placeholder)
+    #   camera.image = camera_placeholder
     # repeat
     if(slicer.next()):
       pattern_progress['value'] += 1
@@ -1485,8 +1485,8 @@ def begin_patterning():
   # update next tile preview
   update_next_tile_preview(mode='current')
   # TODO remove once camera is implemented
-  camera.config(image=camera_placeholder)
-  camera.image = camera_placeholder
+  # camera.config(image=camera_placeholder)
+  # camera.image = camera_placeholder
   # reset fine adjustment parameters based on reset_adj_cycle
   match reset_adj_cycle.state_name():
     case "Reset Nothing":
