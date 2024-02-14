@@ -814,14 +814,14 @@ class GUI_Controller():
 class Stage_Controller():
   update_funcs: dict[Literal['x','y','z','any'], dict[str, Callable]]
   debug: Debug | None
-  step_size: tuple[int,int,int]
-  __coords__: tuple[int,int,int]
+  step_size: tuple[float,float,float]
+  __coords__: tuple[float,float,float]
   __verbosity__: int
   __locked__: bool = False
   
   def __init__(self,
-               starting_coords: tuple[int,int,int] = (0,0,0),
-               step_sizes: tuple[int,int,int] = (1,1,1),
+               starting_coords: tuple[float,float,float] = (0,0,0),
+               step_sizes: tuple[float,float,float] = (1,1,1),
                debug: Debug | None = None,
                verbosity: int = 1):
     self.update_funcs = {'x':{}, 'y':{}, 'z':{}, 'any':{}}
@@ -852,19 +852,19 @@ class Stage_Controller():
       self.update_funcs.get(key,{}).get(func, lambda: None)()
 
   #region: Convenience Getters
-  def x(self) -> int:
+  def x(self) -> float:
     return self.__coords__[0]
-  def y(self) -> int:
+  def y(self) -> float:
     return self.__coords__[1]
-  def z(self) -> int:
+  def z(self) -> float:
     return self.__coords__[2]
-  def xy(self) -> tuple[int,int]:
+  def xy(self) -> tuple[float,float]:
     return (self.__coords__[0], self.__coords__[1])
-  def xz(self) -> tuple[int,int]:
+  def xz(self) -> tuple[float,float]:
     return (self.__coords__[0], self.__coords__[2])
-  def yz(self) -> tuple[int,int]:
+  def yz(self) -> tuple[float,float]:
     return (self.__coords__[1], self.__coords__[2])
-  def xyz(self) -> tuple[int,int,int]:
+  def xyz(self) -> tuple[float,float,float]:
     return self.__coords__
   #endregion
   
@@ -874,12 +874,12 @@ class Stage_Controller():
   def unlock(self):
     self.__locked__ = False
   
-  def step(self, axis: Literal['-x','x','+x','-y','y','+y','-z','z','+z'], size: int = 0, update: bool = True):
+  def step(self, axis: Literal['-x','x','+x','-y','y','+y','-z','z','+z'], size: float = 0, update: bool = True):
     if(self.__locked__):
       if(self.debug != None):
         self.debug.warn("Tried to move stage while locked")
       return
-    delta: tuple[int,int,int] = (0,0,0)
+    delta: tuple[float,float,float] = (0,0,0)
     if(size == 0):
       match axis[-1]:
         case 'x':
@@ -918,8 +918,8 @@ class Stage_Controller():
           debug_str += "\n  any: "+func
       self.debug.info(debug_str)
 
-  # set coords from a list of set of ints
-  def set(self, x:int, y:int, z:int, update: bool = True):
+  # set coords from a list of set of floats
+  def set(self, x:float, y:float, z:float, update: bool = True):
     if(self.__locked__):
       if(self.debug != None):
         self.debug.warn("Tried to move stage while locked")
