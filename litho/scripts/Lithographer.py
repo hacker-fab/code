@@ -9,11 +9,6 @@ from config import camera as camera_hw
 import cv2
 import threading
 import time
-import sys
-import zmq
-import msgpack
-import struct
-import numpy as np
 
 # TODO
 # - Camera Integration
@@ -1047,43 +1042,16 @@ def setup_camera_from_py():
       debug.error('Failed to start stream capture for camera')
 #endregion: Camera Setup
 
-#region: ZMQ setup
-# See https://zguide.zeromq.org/docs and https://pyzmq.readthedocs.io/en/latest/api/zmq.html
-JULIA_PORT = "5555"
-zmq_context = zmq.Context()
-
-julia_socket = zmq_context.socket(zmq.SUB)
-julia_socket.connect("tcp://127.0.0.1:%s" % JULIA_PORT)
-julia_socket.setsockopt_string(zmq.SUBSCRIBE, "")
-
-zmq_poller = zmq.Poller()
-zmq_poller.register(julia_socket, zmq.POLLIN)
-
-#endregion: ZMQ setup
-
 # cleanup function for graceful program exit
 def cleanup():
-  # might need to add more ZMQ cleanup. TODO: needs more testing for cleanup function
-  zmq_context.destroy()
-  should_run = False
+  print("Patterning GUI closed.") # nothing else needed right now
+  GUI.root.destroy()
+
 
 # attach cleanup function to GUI close event
 GUI.root.protocol("WM_DELETE_WINDOW", cleanup)
 GUI.debug.info("Debug info will appear here")
 
-# main loop
-should_run = True
-while(should_run):
-  # non-blocking poll for ZMQ events
-  zmq_events = zmq_poller.poll(5) # timeout of 5ms
-  # if there's an event, assume it's the socket for sending the camera image
-  if len(zmq_events) > 0:
-    # get image from socket
-    image = zmq_events[0][0].recv_pyobj()
-    w, h = image.shape
-    # update gui camera preview
-    gui_camera_preview(image, (w, h))
+setup_camera_from_py()
 
-  GUI.update()
-
-print("Patterning GUI closed.")
+GUI.mainloop()
