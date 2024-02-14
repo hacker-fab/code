@@ -2,7 +2,7 @@ from tkinter import filedialog
 from PIL import Image, ImageTk
 from PIL.ImageOps import invert
 from math import ceil, cos, sin, radians
-from typing import Literal
+from typing import overload
 from math import pi
 
 def toggle_channels(image: Image.Image, red: bool | int = True, green: bool | int = True, blue: bool | int = True) -> Image.Image:
@@ -288,7 +288,7 @@ def build_affine(x: float = 0, y: float = 0, theta: None | tuple[int,int,float] 
 #     50% border would be 50x50 (25% off each side)
 #     100% border would display zero pixels of image
 def better_transform(image: Image.Image,
-                     vector: tuple[int, int, float],
+                     vector: tuple[int, int, int|float],
                      output_size: tuple[int,int],
                      border: float
                      ) -> Image.Image:
@@ -304,13 +304,13 @@ def better_transform(image: Image.Image,
                                 round(output_size[1]*((100-border)/100))))
   img_cpy = img_cpy.resize(fit_size, resample=Image.Resampling.LANCZOS)
 
-  # first we want to compute the affine matrix to move the image to the center of the output
+  # compute the affine matrix to move the image to the center of the output, then the vector, then back
   affine_matrix: tuple[float,...] = build_affine(-vector[0]-(output_size[0]-fit_size[0])//2,
                                                  vector[1]-(output_size[1]-fit_size[1])//2,
                                                 (fit_size[0]//2, fit_size[1]//2, -vector[2]))
   img_cpy = Image.Image.transform(img_cpy, output_size, Image.Transform.AFFINE, affine_matrix, resample=Image.Resampling.BICUBIC, fillcolor="black")
   return img_cpy
-  
+
 # slices image into parts
 def slice(image: Image.Image,
           horizontal_tiles: int = 0,
@@ -363,25 +363,34 @@ def slice(image: Image.Image,
   return (grid, tuple(output))
 
 # add tuples, return new tuple
-def add(a:tuple[int,...]|int, b:tuple[int,...]|int) -> tuple[int,...]|int:
-  if(type(a) == int and type(b) == int):
-    return a+b
-  elif(type(a) == int):
-    return tuple([x+a for x in b])
-  elif(type(b) == int):
-    return tuple([x+b for x in a])
-  else:
+def add(a:tuple[int|float,...]|int|float,
+        b:tuple[int|float,...]|int|float
+        ) -> tuple[int|float,...]|int|float:
+  if(type(a) == tuple and type(b) == tuple):
     return tuple([x+y for x,y in zip(a,b)])
-
-def mult(a:tuple[int,...], b:tuple[int,...]) -> tuple[int,...]:
-  if(type(a) == int and type(b) == int):
-    return a*b
-  elif(type(a) == int):
-    return tuple([x*a for x in b])
-  elif(type(b) == int):
-    return tuple([x*b for x in a])
+  elif(type(a) == tuple):
+    return tuple([x+b for x in a])
+  elif(type(b) == tuple):
+    return tuple([x+a for x in b])
   else:
+    return a+b
+
+# multiply tuples element-wise, return new tuple
+def mult(a:tuple[int|float,...]|int|float, 
+         b:tuple[int|float,...]|int|float
+         ) -> tuple[int|float,...]|int|float:
+  if(type(a) == tuple and type(b) == tuple):
     return tuple([x*y for x,y in zip(a,b)])
+  elif(type(a) == tuple):
+    return tuple([x*b for x in a])
+  elif(type(b) == tuple):
+    return tuple([x*a for x in b])
+  else:
+    return a*b
+  
+# convert float | int tuple to int tuple
+def round_tuple(t: tuple[int|float,...]) -> tuple[int,...]:
+  return tuple([round(x) for x in t])
 
 # automated test suite
 def __run_tests():

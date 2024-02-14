@@ -536,23 +536,23 @@ def step_update(axis: Literal['-x','+x','-y','+y','-z','+z']):
 x_intput = Intput(
   gui=GUI,
   name="x_intput",
-  default=stage.x())
+  default=int(stage.x()))
 x_intput.grid(stage_row+1,stage_col,rowspan=2)
-stage.update_funcs["x"]["x intput"] = lambda: x_intput.set(stage.x())
+stage.update_funcs["x"]["x intput"] = lambda: x_intput.set(int(stage.x()))
 
 y_intput = Intput(
   gui=GUI,
   name="y_intput",
-  default=stage.y())
+  default=int(stage.y()))
 y_intput.grid(stage_row+1,stage_col+1,rowspan=2)
-stage.update_funcs["y"]["y intput"] = lambda: y_intput.set(stage.y())
+stage.update_funcs["y"]["y intput"] = lambda: y_intput.set(int(stage.y()))
 
 z_intput = Intput(
   gui=GUI,
   name="z_intput",
-  default=stage.z())
+  default=int(stage.z()))
 z_intput.grid(stage_row+1,stage_col+2,rowspan=2)
-stage.update_funcs["z"]["z intput"] = lambda: z_intput.set(stage.z())
+stage.update_funcs["z"]["z intput"] = lambda: z_intput.set(int(stage.z()))
 
 #endregion
 
@@ -730,7 +730,7 @@ fine_adjust: Stage_Controller = Stage_Controller(
   verbosity=1)
 def transform_image(image: Image.Image) -> Image.Image:
   if(fine_adjustment_cycle.state == 1):
-    return better_transform(image, (*fine_adjust.xy(), (2*pi*fine_adjust.z())/360), GUI.proj.size(), border_size_intput.get())
+    return better_transform(image, (*round_tuple(fine_adjust.xy()), (2*pi*fine_adjust.z())/360), GUI.proj.size(), border_size_intput.get())
   return image
 def update_displayed_image() -> None:
   match showing_state:
@@ -781,18 +781,18 @@ GUI.add_widget("background_label", background_label)
 fine_x_intput = Intput(
   gui=GUI,
   name="fine_x_intput",
-  default=fine_adjust.x())
+  default=int(fine_adjust.x()))
 fine_x_intput.grid(stage_row+1,stage_col,rowspan=2)
-fine_adjust.update_funcs["x"]["fine x intput"] = lambda: fine_x_intput.set(fine_adjust.x())
+fine_adjust.update_funcs["x"]["fine x intput"] = lambda: fine_x_intput.set(int(fine_adjust.x()))
 
 fine_y_intput = Intput(
   gui=GUI,
   name="fine_y_intput",
-  default=fine_adjust.y())
+  default=int(fine_adjust.y()))
 fine_y_intput.grid(stage_row+1,stage_col+1,rowspan=2)
-fine_adjust.update_funcs["y"]["fine y intput"] = lambda: fine_y_intput.set(fine_adjust.y())
+fine_adjust.update_funcs["y"]["fine y intput"] = lambda: fine_y_intput.set(int(fine_adjust.y()))
 
-fine_theta_floatput = Intput(
+fine_theta_floatput = Floatput(
   gui=GUI,
   name="fine_theta_floatput",
   default=fine_adjust.z())
@@ -926,7 +926,7 @@ fine_y_step_intput = Intput(
   default=1)
 fine_y_step_intput.grid(stage_row+fine_step_size_row+1,stage_col+1)
 
-fine_theta_step_floatput = Intput(
+fine_theta_step_floatput = Floatput(
   gui=GUI,
   name="fine_theta_step_floatput",
   default=1)

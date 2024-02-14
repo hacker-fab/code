@@ -442,13 +442,14 @@ class Floatput():
   __widget__: Entry
   __gui__: GUI_Controller
   __total_floatputs__: int = 0
+  accuracy: int
   var: Variable
   # user fields
   min: float | None
   max: float | None
   name: str
   invalid_color: str
-  # revert displayed value to last valid value if invalid?
+  # revert displayed value to last valid value if invalid
   auto_fix: bool
   # optional validation function, true if input is valid
   extra_validation: Callable[[float], bool] | None
@@ -460,6 +461,7 @@ class Floatput():
   def __init__( self, gui: GUI_Controller,
                 name: str | None = None,
                 default: float = 0,
+                display_accuracy: int = 2,
                 min: float | None = None,
                 max: float | None = None,
                 justify: Literal['left', 'center', 'right'] = "center",
@@ -469,6 +471,7 @@ class Floatput():
                 ):
     # store user inputs
     self.__gui__ = gui
+    self.accuracy = display_accuracy
     self.min = min
     self.max = max
     self.extra_validation = extra_validation
@@ -481,9 +484,9 @@ class Floatput():
     self.last_diff = default
     # setup widget
     self.__widget__ = Entry(gui.root,
-                        textvariable = self.var,
-                        justify=justify
-                        )
+                            textvariable = self.var,
+                            justify=justify
+                            )
     #set name
     if(name == None):
       self.name = "unnamed floatput widget "+str(floatput.__total_floatputs__)
@@ -539,7 +542,7 @@ class Floatput():
     # validate and update accordingly
     if(self.__validate__(new_val)):
       self.__value__ = new_val
-      self.var.set(new_val)
+      self.var.set(round(new_val,self.accuracy))
       self.__widget__.config(bg="white")
     else:
       if(self.auto_fix):
@@ -720,7 +723,7 @@ class TextPopup():
 # GUI controller and widget manager
 class GUI_Controller():
   # list of accepted widget types
-  gui_widgets = Union[Widget, Cycle, Thumbnail, Debug, Intput, TextPopup]
+  gui_widgets = Union[Widget, Cycle, Thumbnail, Debug, Intput, Floatput, TextPopup]
   #region: fields
   ### Internal Fields ###
   root: Tk
