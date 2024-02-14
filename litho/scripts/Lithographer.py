@@ -533,18 +533,6 @@ def step_update(axis: Literal['-x','+x','-y','+y','-z','+z']):
 
 #region: Stage Position
 
-set_coords_button: Button = Button(
-  GUI.root,
-  text = 'Set Stage Position',
-  command = lambda : stage.set(x_intput.get(), y_intput.get(), z_intput.get())
-  )
-set_coords_button.grid(
-  row = stage_row+3,
-  column = stage_col,
-  columnspan = 3,
-  sticky='nesw')
-GUI.add_widget("set_coords_button", set_coords_button)
-
 x_intput = Intput(
   gui=GUI,
   name="x_intput",
@@ -569,7 +557,7 @@ stage.update_funcs["z"]["z intput"] = lambda: z_intput.set(stage.z())
 #endregion
 
 #region: Stage Step size
-step_size_row: int = 5
+step_size_row: int = 7
 
 step_size_text: Label = Label(
   GUI.root,
@@ -606,7 +594,7 @@ z_step_intput.grid(stage_row+step_size_row+1,stage_col+2)
 #endregion
 
 #region: stepping buttons
-step_button_row = 7
+step_button_row = 3
 ### X axis ###
 up_x_button: Button = Button(
   GUI.root,
@@ -675,6 +663,18 @@ down_z_button.grid(
   column = stage_col+2,
   sticky='nesw')
 GUI.add_widget("down_z_button", down_z_button)
+
+set_coords_button: Button = Button(
+  GUI.root,
+  text = 'Set Stage Position',
+  command = lambda : stage.set(x_intput.get(), y_intput.get(), z_intput.get())
+  )
+set_coords_button.grid(
+  row = stage_row+step_button_row+2,
+  column = stage_col,
+  columnspan = 3,
+  sticky='nesw')
+GUI.add_widget("set_coords_button", set_coords_button)
 
 #endregion
 
@@ -776,26 +776,8 @@ background_label.grid(
   columnspan = 3,
   sticky='nesw')
 GUI.add_widget("background_label", background_label)
-  
-
 
 #region: Fine Adjustment Position
-def set_and_update_fine_adjustment() -> None:
-  fine_adjust.set(fine_x_intput.get(), fine_y_intput.get(), fine_theta_intput.get())
-  update_displayed_image()
-set_adjustment_button: Button = Button(
-  GUI.root,
-  text = 'Set Fine Adjustment',
-  bg="light blue",
-  command = set_and_update_fine_adjustment
-  )
-set_adjustment_button.grid(
-  row = stage_row+3,
-  column = stage_col,
-  columnspan = 3,
-  sticky='nesw')
-GUI.add_widget("set_adjustment_button", set_adjustment_button)
-
 fine_x_intput = Intput(
   gui=GUI,
   name="fine_x_intput",
@@ -819,46 +801,8 @@ fine_adjust.update_funcs["z"]["fine theta intput"] = lambda: fine_theta_intput.s
 
 #endregion
 
-#region: Fine Adjustment Step size
-fine_step_size_row: int = 5
-
-fine_step_size_text: Label = Label(
-  GUI.root,
-  text = "Fine Adjustment Step Size",
-  bg = "light blue",
-  justify = 'center',
-  anchor = 'center'
-)
-fine_step_size_text.grid(
-  row = stage_row+fine_step_size_row,
-  column = stage_col,
-  columnspan = 3,
-  sticky='nesw'
-)
-GUI.add_widget("fine_step_size_text", fine_step_size_text)
-
-fine_x_step_intput = Intput(
-  gui=GUI,
-  name="fine_x_step_intput",
-  default=1)
-fine_x_step_intput.grid(stage_row+fine_step_size_row+1,stage_col)
-
-fine_y_step_intput = Intput(
-  gui=GUI,
-  name="fine_y_step_intput",
-  default=1)
-fine_y_step_intput.grid(stage_row+fine_step_size_row+1,stage_col+1)
-
-fine_theta_step_intput = Intput(
-  gui=GUI,
-  name="fine_theta_step_intput",
-  default=1)
-fine_theta_step_intput.grid(stage_row+fine_step_size_row+1,stage_col+2)
-
-#endregion
-
 #region: fine stepping buttons
-fine_step_button_row = 7
+fine_step_button_row = 3
 ### X axis ###
 fine_up_x_button: Button = Button(
   GUI.root,
@@ -933,6 +877,60 @@ fine_down_theta_button.grid(
   column = stage_col+2,
   sticky='nesw')
 GUI.add_widget("fine_down_theta_button", fine_down_theta_button)
+
+def set_and_update_fine_adjustment() -> None:
+  fine_adjust.set(fine_x_intput.get(), fine_y_intput.get(), fine_theta_intput.get())
+  update_displayed_image()
+set_adjustment_button: Button = Button(
+  GUI.root,
+  text = 'Set Fine Adjustment',
+  bg="light blue",
+  command = set_and_update_fine_adjustment
+  )
+set_adjustment_button.grid(
+  row = stage_row+fine_step_button_row+2,
+  column = stage_col,
+  columnspan = 3,
+  sticky='nesw')
+GUI.add_widget("set_adjustment_button", set_adjustment_button)
+
+#endregion
+
+#region: Fine Adjustment Step size
+fine_step_size_row: int = 7
+
+fine_step_size_text: Label = Label(
+  GUI.root,
+  text = "Fine Adjustment Step Size",
+  bg = "light blue",
+  justify = 'center',
+  anchor = 'center'
+)
+fine_step_size_text.grid(
+  row = stage_row+fine_step_size_row,
+  column = stage_col,
+  columnspan = 3,
+  sticky='nesw'
+)
+GUI.add_widget("fine_step_size_text", fine_step_size_text)
+
+fine_x_step_intput = Intput(
+  gui=GUI,
+  name="fine_x_step_intput",
+  default=1)
+fine_x_step_intput.grid(stage_row+fine_step_size_row+1,stage_col)
+
+fine_y_step_intput = Intput(
+  gui=GUI,
+  name="fine_y_step_intput",
+  default=1)
+fine_y_step_intput.grid(stage_row+fine_step_size_row+1,stage_col+1)
+
+fine_theta_step_intput = Intput(
+  gui=GUI,
+  name="fine_theta_step_intput",
+  default=1)
+fine_theta_step_intput.grid(stage_row+fine_step_size_row+1,stage_col+2)
 
 #endregion
 
@@ -1161,7 +1159,9 @@ reset_adj_cycle.add_state(text = "Reset theta only", colors=("black","light blue
 reset_adj_cycle.add_state(text = "Reset All", colors=("white", "gray"))
 reset_adj_cycle.grid(pattern_row+options_row+5,pattern_col+options_col+2)
 
-fine_adjustment_cycle: Cycle = Cycle(gui=GUI, name="fine_adjustment_cycle")
+fine_adjustment_cycle: Cycle = Cycle(gui=GUI,
+                                     name="fine_adjustment_cycle",
+                                     func_always=set_and_update_fine_adjustment)
 fine_adjustment_cycle.add_state(text = "NOT Fine Adjust")
 fine_adjustment_cycle.add_state(text = "Now Fine Adjust", colors=("white", "gray"))
 fine_adjustment_cycle.grid(pattern_row+options_row+5,pattern_col+options_col+3)
