@@ -754,8 +754,8 @@ def fine_step_update(axis: Literal['-x','+x','-y','+y','-z','+z']):
   fine_step_busy = True
   debug.info(f"Fine Step Update: {axis}")
   # first check if the step size has changed
-  if(fine_x_step_intput.changed() or fine_y_step_intput.changed() or fine_theta_step_intput.changed()):
-    fine_adjust.step_size = (fine_x_step_intput.get(), fine_y_step_intput.get(), fine_theta_step_intput.get())
+  if(fine_x_step_intput.changed() or fine_y_step_intput.changed() or fine_theta_step_floatput.changed()):
+    fine_adjust.step_size = (fine_x_step_intput.get(), fine_y_step_intput.get(), fine_theta_step_floatput.get())
   # next update the values
   fine_adjust.step(axis)
   # update image
@@ -792,12 +792,12 @@ fine_y_intput = Intput(
 fine_y_intput.grid(stage_row+1,stage_col+1,rowspan=2)
 fine_adjust.update_funcs["y"]["fine y intput"] = lambda: fine_y_intput.set(fine_adjust.y())
 
-fine_theta_intput = Intput(
+fine_theta_floatput = Intput(
   gui=GUI,
-  name="fine_theta_intput",
+  name="fine_theta_floatput",
   default=fine_adjust.z())
-fine_theta_intput.grid(stage_row+1,stage_col+2,rowspan=2)
-fine_adjust.update_funcs["z"]["fine theta intput"] = lambda: fine_theta_intput.set(fine_adjust.z())
+fine_theta_floatput.grid(stage_row+1,stage_col+2,rowspan=2)
+fine_adjust.update_funcs["z"]["fine theta floatput"] = lambda: fine_theta_floatput.set(fine_adjust.z())
 
 #endregion
 
@@ -879,7 +879,7 @@ fine_down_theta_button.grid(
 GUI.add_widget("fine_down_theta_button", fine_down_theta_button)
 
 def set_and_update_fine_adjustment() -> None:
-  fine_adjust.set(fine_x_intput.get(), fine_y_intput.get(), fine_theta_intput.get())
+  fine_adjust.set(fine_x_intput.get(), fine_y_intput.get(), fine_theta_floatput.get())
   update_displayed_image()
 set_adjustment_button: Button = Button(
   GUI.root,
@@ -926,11 +926,11 @@ fine_y_step_intput = Intput(
   default=1)
 fine_y_step_intput.grid(stage_row+fine_step_size_row+1,stage_col+1)
 
-fine_theta_step_intput = Intput(
+fine_theta_step_floatput = Intput(
   gui=GUI,
-  name="fine_theta_step_intput",
+  name="fine_theta_step_floatput",
   default=1)
-fine_theta_step_intput.grid(stage_row+fine_step_size_row+1,stage_col+2)
+fine_theta_step_floatput.grid(stage_row+fine_step_size_row+1,stage_col+2)
 
 #endregion
 
@@ -960,11 +960,11 @@ center_area.add(1,[ "background_label",
                     "set_adjustment_button",
                     "fine_x_intput",
                     "fine_y_intput",
-                    "fine_theta_intput",
+                    "fine_theta_floatput",
                     "fine_step_size_text",
                     "fine_x_step_intput",
                     "fine_y_step_intput",
-                    "fine_theta_step_intput",
+                    "fine_theta_step_floatput",
                     "fine_up_x_button",
                     "fine_down_x_button",
                     "fine_up_y_button",
@@ -1627,7 +1627,7 @@ def benchmark():
     border_size_intput.set(random.randint(0,99))
     fine_x_intput.set(random.randint(-proj_size[0], proj_size[0]))
     fine_y_intput.set(random.randint(-proj_size[1], proj_size[1]))
-    fine_theta_intput.set(random.randint(-360,360))
+    fine_theta_floatput.set(random.randint(-360,360))
     set_and_update_fine_adjustment()
     #randomize posterize cutoff
     post_strength_intput.set(random.randint(0,99))

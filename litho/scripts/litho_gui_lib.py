@@ -1,5 +1,5 @@
 from __future__ import annotations
-from tkinter import Tk, Button, Toplevel, Entry, IntVar, Variable, filedialog, Label, Widget
+from tkinter import Tk, Button, Toplevel, Entry, IntVar, DoubleVar, Variable, filedialog, Label, Widget
 from tkinter.ttk import Progressbar
 from PIL import ImageTk, Image
 from time import time
@@ -435,7 +435,134 @@ class Intput():
       return False
     # passed all checks
     return True
+
+# creates a better float input field
+class Floatput():
+  # private fields
+  __widget__: Entry
+  __gui__: GUI_Controller
+  __total_floatputs__: int = 0
+  var: Variable
+  # user fields
+  min: float | None
+  max: float | None
+  name: str
+  invalid_color: str
+  # revert displayed value to last valid value if invalid?
+  auto_fix: bool
+  # optional validation function, true if input is valid
+  extra_validation: Callable[[float], bool] | None
+  # the value that will be returned: always valid
+  __value__: float
+  # value checked by changed()
+  last_diff: float
+  
+  def __init__( self, gui: GUI_Controller,
+                name: str | None = None,
+                default: float = 0,
+                min: float | None = None,
+                max: float | None = None,
+                justify: Literal['left', 'center', 'right'] = "center",
+                extra_validation: Callable[[float], bool] | None = None,
+                auto_fix: bool = True,
+                invalid_color: str = "red"
+                ):
+    # store user inputs
+    self.__gui__ = gui
+    self.min = min
+    self.max = max
+    self.extra_validation = extra_validation
+    self.auto_fix = auto_fix
+    self.invalid_color = invalid_color
+    # setup var
+    self.var = DoubleVar()
+    self.var.set(default)
+    self.value = self.min
+    self.last_diff = default
+    # setup widget
+    self.__widget__ = Entry(gui.root,
+                        textvariable = self.var,
+                        justify=justify
+                        )
+    #set name
+    if(name == None):
+      self.name = "unnamed floatput widget "+str(floatput.__total_floatputs__)
+      floatput.__total_floatputs__ += 1
+      gui.add_widget(self.name, self)
+    else:
+      gui.add_widget(name, self)
+    # update
+    self.__update__()
+  
+  # place widget on the grid
+  def grid(self, row: int | None = None, col: int | None = None, colspan: int = 1, rowspan: int = 1):
+    if(row == None or col == None):
+      self.__widget__.grid()
+    else:
+      self.__widget__.grid(row = row,
+                       column = col,
+                       rowspan = rowspan,
+                       columnspan = colspan,
+                       sticky = "nesw")
+
+  # remove widget from the grid
+  def grid_remove(self):
+    self.__widget__.grid_remove()
     
+  # get the more recent vaid value
+  def get(self, update: bool = True) -> float:
+    if(update):
+      self.__update__()
+    return self.__value__
+  
+  
+  # try and set a new value
+  def set(self, user_value: float):
+    self.__update__(user_value)
+  
+  # has the value changed since the last time this method was called
+  def changed(self) -> bool:
+    if(self.get() != self.last_diff):
+      self.last_diff = self.get()
+      return True
+    return False
+    
+  
+  # updates widget and value
+  def __update__(self, new_value: float | None = None):
+    # get new potential value
+    new_val: float
+    if(new_value == None):
+      new_val = self.var.get()
+    else:
+      new_val = new_value
+    # validate and update accordingly
+    if(self.__validate__(new_val)):
+      self.__value__ = new_val
+      self.var.set(new_val)
+      self.__widget__.config(bg="white")
+    else:
+      if(self.auto_fix):
+        self.var.set(self.__value__)
+      else:
+        self.__widget__.config(bg=self.invalid_color)
+      if(self.__gui__.debug != None):
+        self.__gui__.debug.error("Invalid value for "+self.name+": "+str(new_val))
+    self.__widget__.update()
+    
+  # check if the current value is valid
+  def __validate__(self, new_val: float) -> bool:
+    # check min / max
+    if(self.min != None and new_val < self.min):
+      return False
+    if(self.max != None and new_val > self.max):
+      return False
+    # check extra validation
+    if(self.extra_validation != None and not self.extra_validation(new_val)):
+      return False
+    # passed all checks
+    return True
+
 # creates a fullscreen window and displays specified images to it
 class Projector_Controller():
   ### Internal Fields ###
