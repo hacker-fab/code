@@ -1620,7 +1620,7 @@ def cv_stage(camera_image):
 
 # updates camera preview on GUI
 def gui_camera_preview(camera_image, dimensions):
-  pil_img = Image.fromarray(camera_image, mode='L')
+  pil_img = Image.fromarray(camera_image, mode='RGB')
   gui_img = rasterize(pil_img.resize(fit_image(pil_img, (GUI.window_size[0],int((GUI.window_size[0]*dimensions[0])/dimensions[1]//1))), Image.Resampling.NEAREST))
   camera.config(image=gui_img)
   camera.image = gui_img
@@ -1655,7 +1655,7 @@ def setup_camera_from_py():
   if not camera_hw.open():
     debug.error("Camera failed to start.")
   else:
-    camera_hw.setSetting('image_format', "mono8")
+    camera_hw.setSetting('image_format', "rgb888")
     camera_hw.setStreamCaptureCallback(cameraCallback)
 
     if not camera_hw.startStreamCapture():
