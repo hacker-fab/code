@@ -6,7 +6,7 @@
 # For performance evaluation, this script reports the framerate of a particular camera. For now,
 # manual modification of settings is required for profiling different hardware or hardware settings.
 
-from flir.flir_camera import FlirCamera
+from camera.flir.flir_camera import FlirCamera
 import time
 
 last_time = 0
@@ -24,9 +24,9 @@ def cameraCallback(image, dimensions, format):
         print(f"Image dimensions: {dimensions[0]}, {dimensions[1]}. Format: '{format}'") 
         print("Period | Speed:")
     else:
-        latency = this_time - last_time
+        latency = (this_time - last_time) * 1000
         if latency != 0:
-            print(f"{latency} ms | {1000/latency} FPS")
+            print(f"{latency: .2f} ms | {1000/latency: .2f} FPS")
 
     last_time = this_time
     this_time = time.time()
@@ -45,7 +45,7 @@ camera = FlirCamera()
 if not camera.open():
     print("Camera failed to start.")
 else:
-    camera.setSetting('image_format', "rgb888")
+    print(f"Format set? {camera.setSetting('image_format', 'rgb888')}")
     camera.setStreamCaptureCallback(cameraCallback)
 
     if not camera.startStreamCapture():
