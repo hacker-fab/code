@@ -1619,11 +1619,14 @@ def cv_stage(camera_image):
 
 
 # updates camera preview on GUI
+import numpy as np
+from skimage.measure import block_reduce
 def gui_camera_preview(camera_image, dimensions):
-  pil_img = Image.fromarray(camera_image, mode='RGB')
-  gui_img = rasterize(pil_img.resize(fit_image(pil_img, (GUI.window_size[0],int((GUI.window_size[0]*dimensions[0])/dimensions[1]//1))), Image.Resampling.NEAREST))
-  camera.config(image=gui_img)
-  camera.image = gui_img
+  target_ratio = div(dimensions, fill_image(dimensions, GUI.window_size))
+  small_np = block_reduce(camera_image, block_size=(1, *target_ratio), func=np.mean)
+  raster_image = ImageTk.PhotoImage(image=Image.fromarray(small_np, mode='RGB'))
+  camera.config(image=raster_image)
+  camera.image = raster_image
 
 
 # called by camera hardware as separate thread
