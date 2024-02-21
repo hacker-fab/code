@@ -1620,13 +1620,16 @@ def cv_stage(camera_image):
 
 # updates camera preview on GUI
 import numpy as np
+
 from skimage.measure import block_reduce
 def gui_camera_preview(camera_image, dimensions):
+  print(dimensions)
   target_ratio = div(dimensions, fill_image(dimensions, GUI.window_size))
-  small_np = block_reduce(camera_image, block_size=(1, *target_ratio), func=np.mean)
+  small_np = block_reduce(camera_image, block_size=(target_ratio[1], target_ratio[0], 1), func=np.mean)
   raster_image = ImageTk.PhotoImage(image=Image.fromarray(small_np, mode='RGB'))
   camera.config(image=raster_image)
   camera.image = raster_image
+  print(small_np.shape)
 
 
 # called by camera hardware as separate thread
@@ -1644,14 +1647,15 @@ def cameraCallback(image, dimensions, format):
     print(f"CV-Stage Time: {new_time - cv_stage_job_time}s", flush=True)
     cv_stage_job_time = new_time
   '''
-  if gui_camera_preview_job is None or not gui_camera_preview_job.is_alive():
-    gui_camera_preview_job = threading.Thread(target=gui_camera_preview, args=(image, dimensions,))
-    gui_camera_preview_job.start()
-    new_time = time.time()
-    #print(f"GUI-Camera Time: {new_time - gui_camera_preview_job_time}s", flush=True)
-    gui_camera_preview_job_time = new_time
+  gui_camera_preview(image, dimensions)
+  # if gui_camera_preview_job is None or not gui_camera_preview_job.is_alive():
+  #   gui_camera_preview_job = threading.Thread(target=gui_camera_preview, args=(image, dimensions,))
+  #   gui_camera_preview_job.start()
+  #   new_time = time.time()
+  #   #print(f"GUI-Camera Time: {new_time - gui_camera_preview_job_time}s", flush=True)
+  #   gui_camera_preview_job_time = new_time
 
-  #print(f'image captured; num_threads={len(threading.enumerate())}', flush=True)
+  print(f'image captured; num_threads={len(threading.enumerate())}', flush=True)
 
 
 def setup_camera_from_py():
