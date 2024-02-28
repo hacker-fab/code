@@ -36,24 +36,22 @@ scale_factor = 50/3890 # 50 units went about 3890 microns
 # - Add user controllable tile adjustment and continue
 # - use a paste command to put the preview on a black background to represent the actual exposure. 
 
-VERSION: str = "1.5.0"
+VERSION: str = "1.6.0"
 ''' Patch Notes
 
 **Major**
-- GUI receives live camera feed
-- Control exposure RGB color channels
+- Manual XYZ motor control through GUI, units in microns (approximate)
 
-**TODO for 1.5.x**
+**TODO for 1.6.x**
 - Improve camera preview sizing on GUI (i.e. take up less space) 
 - Make camera settings configurable
+- Camera performance enhancements
+- Automatic serial port detection 
 
 **TODO for later versions**
-- Manual motor control (GRBL)
 - Code refactoring
-- Performance enhancements
 - Automatic step and expose
 - UI improvements
-
 '''
 
 #region: setup 
@@ -271,6 +269,7 @@ How do I use the stage controls?
 - You can type in coordinates, then press "set stage position" to move the stage
 - Or, you can use the step buttons on the GUI or the arrow keys on your keyboard (ctrl/shift+up/down for z axis)
 - You can also modify the step sizes for each axis. Those are applied immediately. 
+- Default units are in microns.
 
 
 How do I use flatfield correction?
@@ -314,7 +313,7 @@ see our website for contact methods:
 http://hackerfab.ece.cmu.edu
 
 
-This tool was made by Luca Garlati for Hackerfab
+This tool was made by Luca Garlati and Kent Wirant for Hacker Fab
 """
 help_popup: TextPopup = TextPopup(
   root=GUI.root,
@@ -538,7 +537,7 @@ center_area: Smart_Area = Smart_Area(
   name="center area")
 #create button to toggle between stage and fine adjustment
 center_area_cycle: Cycle = Cycle(gui = GUI, name = "center_area_cycle")
-center_area_cycle.add_state(text = "- Stage Position -",
+center_area_cycle.add_state(text = "- Stage Position (microns) -",
                             enter = lambda: center_area.jump(0))
 center_area_cycle.add_state(text = "- Fine Adjustment -",
                             colors = ("black","light blue"),
@@ -602,7 +601,7 @@ step_size_row: int = 5
 
 step_size_text: Label = Label(
   GUI.root,
-  text = "Stage Step Size",
+  text = "Stage Step Size (microns)",
   justify = 'center',
   anchor = 'center'
 )
