@@ -6,13 +6,16 @@ from time import sleep
 from litho_img_lib import *
 from litho_gui_lib import *
 from stage_control.grbl_stage import GrblStage
+import serial
 
 from config import camera as camera_hw
 import cv2
 import threading
 import time
 
-stage_file = "COM4" # change as needed; later will have automatic COM port identification
+stage_file = "COM6" # change as needed; later will have automatic COM port identification
+baud_rate = 115200
+scale_factor = 50/3890 # 50 units went about 3890 microns
 
 # TODO
 # - Camera Integration
@@ -1586,7 +1589,10 @@ right_area.jump(0)
 
 #endregion
 #region: Stage Control Setup
-stage_low_level = GrblStage(stage_file) 
+serial_port = serial.Serial(stage_file, baud_rate)
+print(f"Using serial port {serial_port.name}")
+stage_low_level = GrblStage(serial_port, bounds=((-12000,12000),(-12000,12000),(-12000,12000))) 
+
 
 def update_func_x():
   pass
@@ -1598,10 +1604,12 @@ previous_xyz: tuple[int,int,int] = stage.xyz()
 def move_stage():
   global previous_xyz
   current = stage.xyz()
-  dx = current[0]-previous_xyz[0]
-  dy = current[2]-previous_xyz[2]
+  dx = scale_factor*(current[0]-previous_xyz[0])
+  dy = scale_factor*(current[1]-previous_xyz[1])
+  dz = scale_factor*(current[2]-previous_xyz[2])
   previous_xyz = stage.xyz()
-  print(f"test {dx} {dy}", flush=True)
+  print(f"test {dx} {dy} {dz}", flush=True)
+  stage_low_level.move_by({'x':dx,'y':dy,'z':dz})
 
 stage.update_funcs['any'] = {'any': move_stage}
 #endregion: Stage Control Setup
@@ -1788,7 +1796,8 @@ def benchmark():
 # benchmark()
 # cleanup function for graceful program exit
 def cleanup():
-  print("Patterning GUI closed.") # nothing else needed right now
+  print("Patterning GUI closed.")
+  serial_port.close()
   GUI.root.destroy()
 
 
