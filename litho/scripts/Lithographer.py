@@ -5,11 +5,14 @@ from PIL import  Image
 from time import sleep
 from litho_img_lib import *
 from litho_gui_lib import *
+from stage_control.grbl_stage import GrblStage
 
 from config import camera as camera_hw
 import cv2
 import threading
 import time
+
+stage_file = "COM4" # change as needed; later will have automatic COM port identification
 
 # TODO
 # - Camera Integration
@@ -1583,7 +1586,7 @@ right_area.jump(0)
 
 #endregion
 #region: Stage Control Setup
-#stage_ll = StageControllerLowLevel()
+stage_low_level = GrblStage(stage_file) 
 
 def update_func_x():
   pass
@@ -1593,17 +1596,14 @@ def update_func_x():
 
 previous_xyz: tuple[int,int,int] = stage.xyz()
 def move_stage():
-  pass
-  #global previous_xyz
-  #current = stage.xyz()
-  #dx = current[0]-previous_xyz[0]
-  #dy = current[2]-previous_xyz[2]
-  # right now, Y and Z axes are swapped
-  #stage_socket.send(msgpack.packb([time.time_ns(), dx, dy, 0]))
-  #previous_xyz = stage.xyz()
-  #print(f"test {dx} {dy}", flush=True)
+  global previous_xyz
+  current = stage.xyz()
+  dx = current[0]-previous_xyz[0]
+  dy = current[2]-previous_xyz[2]
+  previous_xyz = stage.xyz()
+  print(f"test {dx} {dy}", flush=True)
 
-#stage.update_funcs['any'] = {'any': move_stage}
+stage.update_funcs['any'] = {'any': move_stage}
 #endregion: Stage Control Setup
 
 #region: Camera Setup
