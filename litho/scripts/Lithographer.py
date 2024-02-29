@@ -5,6 +5,17 @@ from PIL import  Image
 from time import sleep
 from litho_img_lib import *
 from litho_gui_lib import *
+from stage_control.grbl_stage import GrblStage
+import serial
+
+from config import camera as camera_hw
+import cv2
+import threading
+import time
+
+stage_file = "COM6" # change as needed; later will have automatic COM port identification
+baud_rate = 115200
+scale_factor = 50/3890 # 50 units went about 3890 microns
 
 # TODO
 # - Camera Integration
@@ -15,7 +26,6 @@ from litho_gui_lib import *
 #     Make stage move with stage controls and tiling
 # 
 # Low Priority
-# - an image showing live camera output (I'll just set the image and it will update basically)
 # - CLI
 # - add a button to show pure white image for flatfield correction
 # - fix bug where flatfield pattern is reapplied on second pattern show
@@ -26,14 +36,31 @@ from litho_gui_lib import *
 # - Add user controllable tile adjustment and continue
 # - use a paste command to put the preview on a black background to represent the actual exposure. 
 
-VERSION: str = "1.?.?"
+VERSION: str = "1.6.0"
+''' Patch Notes
+
+**Major**
+- Manual XYZ motor control through GUI, units in microns (approximate)
+
+**TODO for 1.6.x**
+- Improve camera preview sizing on GUI (i.e. take up less space) 
+- Make camera settings configurable
+- Camera performance enhancements
+- Automatic serial port detection 
+
+**TODO for later versions**
+- Code refactoring
+- Automatic step and expose
+- UI improvements
+'''
+
 #region: setup 
 THUMBNAIL_SIZE: tuple[int,int] = (160,90)
-CHIN_SIZE: int = 400
+CHIN_SIZE: int = 0
 GUI: GUI_Controller = GUI_Controller(grid_size = (14,11),
                                      title = "Lithographer "+VERSION,
                                      add_window_size=(0,CHIN_SIZE))
-SPACER_SIZE: int = GUI.window_size[0]//(GUI.grid_size[1]*5)
+SPACER_SIZE: int = 0#GUI.window_size[0]//(GUI.grid_size[1])
 # Debugger
 debug: Debug = Debug(root=GUI.root)
 GUI.add_widget("debug", debug)
@@ -61,7 +88,7 @@ def process_img(image_in: Image.Image | Smart_Image | Thumbnail) -> Image.Image:
   elif(type(image_in) == Image.Image):
     img = Smart_Image(image_in)
   
-  #region: convenience vars
+#region: convenience vars
   color_channels: tuple#[bool,bool,bool] would type properly, but python throws a hissy fit if I do
   match img.get("name"):
     case "pattern":
@@ -242,6 +269,7 @@ How do I use the stage controls?
 - You can type in coordinates, then press "set stage position" to move the stage
 - Or, you can use the step buttons on the GUI or the arrow keys on your keyboard (ctrl/shift+up/down for z axis)
 - You can also modify the step sizes for each axis. Those are applied immediately. 
+- Default units are in microns.
 
 
 How do I use flatfield correction?
@@ -285,7 +313,7 @@ see our website for contact methods:
 http://hackerfab.ece.cmu.edu
 
 
-This tool was made by Luca Garlati for Hackerfab
+This tool was made by Luca Garlati and Kent Wirant for Hacker Fab
 """
 help_popup: TextPopup = TextPopup(
   root=GUI.root,
@@ -509,7 +537,7 @@ center_area: Smart_Area = Smart_Area(
   name="center area")
 #create button to toggle between stage and fine adjustment
 center_area_cycle: Cycle = Cycle(gui = GUI, name = "center_area_cycle")
-center_area_cycle.add_state(text = "- Stage Position -",
+center_area_cycle.add_state(text = "- Stage Position (microns) -",
                             enter = lambda: center_area.jump(0))
 center_area_cycle.add_state(text = "- Fine Adjustment -",
                             colors = ("black","light blue"),
@@ -561,7 +589,7 @@ step_size_row: int = 7
 
 step_size_text: Label = Label(
   GUI.root,
-  text = "Stage Step Size",
+  text = "Stage Step Size (microns)",
   justify = 'center',
   anchor = 'center'
 )
@@ -728,7 +756,7 @@ center_area.add_func(0,bind_stage_controls, unbind_stage_controls)
 fine_adjust: Stage_Controller = Stage_Controller(
   debug=debug,
   verbosity=1)
-def transform_image(image: Image.Image) -> Image.Image:
+def transform_image(image: Image.Image, theta_factor: float = 0.1) -> Image.Image:
   if(fine_adjustment_cycle.state == 1):
     return better_transform(image, (*round_tuple(fine_adjust.xy()), (2*pi*fine_adjust.z())/360), GUI.proj.size(), border_size_intput.get())
   return image
@@ -1454,9 +1482,9 @@ def begin_patterning():
     image = transform_image(image)
     #TODO apply fine adjustment vector to image
     #TODO remove once camera is implemented
-    camera_image_preview = rasterize(image.resize(fit_image(image, (GUI.window_size[0],(GUI.window_size[0]*9)//16)), Image.Resampling.LANCZOS))
-    camera.config(image=camera_image_preview)
-    camera.image = camera_image_preview
+    #camera_image_preview = rasterize(image.resize(fit_image(image, (GUI.window_size[0],(GUI.window_size[0]*9)//16)), Image.Resampling.LANCZOS))
+    #camera.config(image=camera_image_preview)
+    #camera.image = camera_image_preview
     #pattern
     if(pattern_status == 'aborting'):
       break
@@ -1466,10 +1494,10 @@ def begin_patterning():
     stage.unlock()
     if(pattern_status == 'aborting'):
       break
-    if(result):
-      # TODO remove once camera is implemented
-      camera.config(image=camera_placeholder)
-      camera.image = camera_placeholder
+    # if(result):
+    #   # TODO remove once camera is implemented
+    #   camera.config(image=camera_placeholder)
+    #   camera.image = camera_placeholder
     # repeat
     if(slicer.next()):
       pattern_progress['value'] += 1
@@ -1485,8 +1513,8 @@ def begin_patterning():
   # update next tile preview
   update_next_tile_preview(mode='current')
   # TODO remove once camera is implemented
-  camera.config(image=camera_placeholder)
-  camera.image = camera_placeholder
+  # camera.config(image=camera_placeholder)
+  # camera.image = camera_placeholder
   # reset fine adjustment parameters based on reset_adj_cycle
   match reset_adj_cycle.state_name():
     case "Reset Nothing":
@@ -1556,11 +1584,102 @@ right_area.add(1,["Current_tile_text",
                   "pattern_button_timed",
                   "clear_button"])
 
-#endregion
-
 right_area.jump(0)
 
 #endregion
+#region: Stage Control Setup
+serial_port = serial.Serial(stage_file, baud_rate)
+print(f"Using serial port {serial_port.name}")
+stage_low_level = GrblStage(serial_port, bounds=((-12000,12000),(-12000,12000),(-12000,12000))) 
+
+
+def update_func_x():
+  pass
+  #print('moving x', flush=True)
+  #dx = stage.step_size[0]
+  #stage_socket.send(msgpack.packb([time.time_ns(), [dx]]))
+
+previous_xyz: tuple[int,int,int] = stage.xyz()
+def move_stage():
+  global previous_xyz
+  current = stage.xyz()
+  dx = scale_factor*(current[0]-previous_xyz[0])
+  dy = scale_factor*(current[1]-previous_xyz[1])
+  dz = scale_factor*(current[2]-previous_xyz[2])
+  previous_xyz = stage.xyz()
+  print(f"test {dx} {dy} {dz}", flush=True)
+  stage_low_level.move_by({'x':dx,'y':dy,'z':dz})
+
+stage.update_funcs['any'] = {'any': move_stage}
+#endregion: Stage Control Setup
+
+#region: Camera Setup
+cv_stage_job = None
+gui_camera_preview_job = None
+cv_stage_job_time = 0
+gui_camera_preview_job_time = 0
+
+# sends image to stage controller
+def cv_stage(camera_image):
+  grayscale = cv2.normalize(camera_image, None, 0, 255, cv2.NORM_MINMAX)
+  #stage_ll.updateImage(grayscale)
+
+
+# updates camera preview on GUI
+import numpy as np
+
+# from skimage.measure import block_reduce
+def gui_camera_preview(camera_image, dimensions):
+  pil_img = Image.fromarray(camera_image, mode='RGB')
+  gui_img = rasterize(pil_img.resize(fit_image(pil_img, (GUI.window_size[0],int((GUI.window_size[0]*dimensions[0])/dimensions[1]//1))), Image.Resampling.NEAREST))
+  camera.config(image=gui_img)
+  camera.image = gui_img
+  # print(dimensions)
+  # target_ratio = div(dimensions, fill_image(dimensions, GUI.window_size))
+  # small_np = block_reduce(camera_image, block_size=(target_ratio[1], target_ratio[0], 1), func=np.mean)
+  # raster_image = ImageTk.PhotoImage(image=Image.fromarray(small_np, mode='RGB'))
+  # camera.config(image=raster_image)
+  # camera.image = raster_image
+  # print(small_np.shape)
+
+
+# called by camera hardware as separate thread
+def cameraCallback(image, dimensions, format):
+  global cv_stage_job
+  global gui_camera_preview_job
+  global cv_stage_job_time
+  global gui_camera_preview_job_time
+  '''
+  # might be susceptible to TOC-TOU race condition
+  if cv_stage_job is None or not cv_stage_job.is_alive():
+    cv_stage_job = threading.Thread(target=cv_stage, args=(image,))
+    cv_stage_job.start()
+    new_time = time.time()
+    print(f"CV-Stage Time: {new_time - cv_stage_job_time}s", flush=True)
+    cv_stage_job_time = new_time
+  '''
+  gui_camera_preview(image, dimensions)
+  # if gui_camera_preview_job is None or not gui_camera_preview_job.is_alive():
+  #   gui_camera_preview_job = threading.Thread(target=gui_camera_preview, args=(image, dimensions,))
+  #   gui_camera_preview_job.start()
+  #   new_time = time.time()
+  #   #print(f"GUI-Camera Time: {new_time - gui_camera_preview_job_time}s", flush=True)
+  #   gui_camera_preview_job_time = new_time
+
+  # print(f'image captured; num_threads={len(threading.enumerate())}', flush=True)
+
+
+def setup_camera_from_py():
+  if not camera_hw.open():
+    debug.error("Camera failed to start.")
+  else:
+    camera_hw.setSetting('image_format', "rgb888")
+    camera_hw.setStreamCaptureCallback(cameraCallback)
+
+    if not camera_hw.startStreamCapture():
+      debug.error('Failed to start stream capture for camera')
+#endregion: Camera Setup
+
 
 def benchmark():
   from sys import exit
@@ -1674,6 +1793,18 @@ def benchmark():
   GUI.root.quit()
   exit()
 # benchmark()
+# cleanup function for graceful program exit
+def cleanup():
+  print("Patterning GUI closed.")
+  serial_port.close()
+  GUI.root.destroy()
 
-debug.info("Debug info will appear here")
+
+# attach cleanup function to GUI close event
+GUI.root.protocol("WM_DELETE_WINDOW", cleanup)
+GUI.debug.info("Debug info will appear here")
+
+setup_camera_from_py()
+
 GUI.mainloop()
+

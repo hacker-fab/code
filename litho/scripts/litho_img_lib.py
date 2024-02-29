@@ -46,12 +46,15 @@ def fit_image(image: Image.Image, win_size: tuple[int,int]) -> tuple[int,int]:
   else:
     # same ratio
     return win_size
-  
 
 # return min image size that will fill in window
-def fill_image(image: Image.Image, win_size: tuple[int,int]) -> tuple[int,int]:
+def fill_image(image: Image.Image | tuple[int,int], win_size: tuple[int,int]) -> tuple[int,int]:
   # for easier access
-  img_size: tuple[int,int] = (image.width, image.height)
+  img_size: tuple[int,int]
+  if(type(image) == tuple):
+    img_size = image
+  elif(type(image) == Image.Image):
+    img_size = (image.width, image.height)
   # determine orientation to fit to
   if (win_size[0] / win_size[1]) > (img_size[0] / img_size[1]):
     # window wider than image: fit to width
@@ -239,7 +242,6 @@ def rasterize(image: Image.Image) -> ImageTk.PhotoImage:
   else:
     return ImageTk.PhotoImage(image)
 
-
 # convert from 0 to 100 intensity scale to tuple values
 # 0   = (255, 255)
 # 50  = (0,   255)
@@ -391,6 +393,16 @@ def mult(a:tuple[int|float,...]|int|float,
 # convert float | int tuple to int tuple
 def round_tuple(t: tuple[int|float,...]) -> tuple[int,...]:
   return tuple([round(x) for x in t])
+
+def div(a:tuple[int,...], b:tuple[int,...]) -> tuple[int,...]:
+  if(type(a) == int and type(b) == int):
+    return a/b
+  elif(type(a) == int):
+    return tuple([x/a for x in b])
+  elif(type(b) == int):
+    return tuple([x/b for x in a])
+  else:
+    return tuple([round(x/y) for x,y in zip(a,b)])
 
 # automated test suite
 def __run_tests():
