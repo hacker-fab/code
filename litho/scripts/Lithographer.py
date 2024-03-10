@@ -15,7 +15,7 @@ import time
 
 stage_file = "COM6" # change as needed; later will have automatic COM port identification
 baud_rate = 115200
-scale_factor = 50/3890 # 50 units went about 3890 microns
+scale_factor = 50/3890 # For us, 50 units went about 3890 microns. PLEASE CHANGE THIS FOR YOUR OWN SETUP.
 
 # TODO
 # - Camera Integration
@@ -36,16 +36,15 @@ scale_factor = 50/3890 # 50 units went about 3890 microns
 # - Add user controllable tile adjustment and continue
 # - use a paste command to put the preview on a black background to represent the actual exposure. 
 
-VERSION: str = "1.6.0"
+VERSION: str = "1.6.1"
 ''' Patch Notes
 
-**Major**
-- Manual XYZ motor control through GUI, units in microns (approximate)
+**Minor**
+- Reduced camera latency by modifying handling of image buffer
 
 **TODO for 1.6.x**
 - Improve camera preview sizing on GUI (i.e. take up less space) 
 - Make camera settings configurable
-- Camera performance enhancements
 - Automatic serial port detection 
 
 **TODO for later versions**
