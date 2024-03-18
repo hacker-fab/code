@@ -27,12 +27,24 @@
 
  */
 
+ /*
+  * this script was modified by Elio and Carlos from the Hacker Fab to control a gripper. 
+  * We want to read the current from the gripper so we can tell when it stalls and we've gripped a chip.
+  * The raw readings aren't great so we use a moving sum to average the last 50 readings.
+  * To do: set a threshold to tell whether the motor is stalled or not.
+  */
+
 #include <Servo.h>
 
 Servo myservo;  // create servo object to control a servo
 // twelve servo objects can be created on most boards
 
-int pos = 0;    // variable to store the servo position
+int pos = 11;    // variable to store the servo position
+int i = 1;
+int j = 0;
+int sum = 0;
+int readingLen = 50;
+int readings[50];
 // Constants
 const int SENSOR_PIN = A0;  // Input pin for measuring Vout
 const int RS = 1;          // Shunt resistor value (in ohms)
@@ -50,49 +62,40 @@ void setup() {
 }
 
 void loop() {
-  for (pos = 10; pos <= 90; pos += 1) { // goes from 0 degrees to 180 degrees
-    // in steps of 1 degree
-    myservo.write(pos);              // tell servo to go to position in variable 'pos'
-      // Read a value from the INA169 board
-    sensorValue = analogRead(SENSOR_PIN);
-
-    // Remap the ADC value into a voltage number (5V reference)
-    //sensorValue = (sensorValue * VOLTAGE_REF) / 1023;
-
-    // Follow the equation given by the INA169 datasheet to
-    // determine the current flowing through RS. Assume RL = 10k
-    //Is = (Vout x 1k) / (RS x RL)
-    //current = sensorValue / (10 * RS);
-
-    // Output value (in amps) to the serial monitor to 3 decimal
-    // places
-    Serial.println(sensorValue);
-    //Serial.println(" A");
-
-    // Delay program for a few milliseconds
-    delay(20);                      // waits 15 ms for the servo to reach the position
+  j += 1;
+  //j is just main loop increment so we can sample faster than write.
+  //generate triangle wave and write to servo, 10 to 90 degrees
+    if (j % 5 == 0){
+      if (pos == 10){
+      i = 1;
+    }
+      if (pos == 90){
+      i = -1;
+    }
+    pos += i;
+    myservo.write(pos); // tell servo to go to position in variable 'pos'
   }
-  for (pos = 90; pos >= 10; pos -= 1) { // goes from 180 degrees to 0 degrees
-    myservo.write(pos);              // tell servo to go to position in variable 'pos'
-                          // waits 15 ms for the servo to reach the position
-      // Read a value from the INA169 board
-    sensorValue = analogRead(SENSOR_PIN);
+               
+  // Read a value from the INA169 board
+  sensorValue = analogRead(SENSOR_PIN);
+  readings[j%readingLen] = sensorValue; //update new reading in array
+  sum = sum + sensorValue; // update sum
+  sum = sum - readings[(j+1)%readingLen]; //remove value from 100 readings ago
+  
+  // Remap the ADC value into a voltage number (5V reference)
+  //sensorValue = (sensorValue * VOLTAGE_REF) / 1023;
 
-    // Remap the ADC value into a voltage number (5V reference)
-    //sensorValue = (sensorValue * VOLTAGE_REF) / 1023;
-
-    // Follow the equation given by the INA169 datasheet to
-    // determine the current flowing through RS. Assume RL = 10k
-    // Is = (Vout x 1k) / (RS x RL)
-    //current = sensorValue / (10 * RS);
-
+  // Follow the equation given by the INA169 datasheet to
+  // determine the current flowing through RS. Assume RL = 10k
+  //Is = (Vout x 1k) / (RS x RL)
+  //current = sensorValue / (10 * RS);
+  
   // Output value (in amps) to the serial monitor to 3 decimal
   // places
-    Serial.println(sensorValue);
-    //Serial.println(" A");
+  Serial.println(sum);
+  
+  //Serial.println(" A");
 
   // Delay program for a few milliseconds
-    delay(20);
+  delay(10);                      // waits 15 ms for the servo to reach the position
   }
-}
-
