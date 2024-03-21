@@ -736,7 +736,6 @@ class GUI_Controller():
   window_size: tuple[int,int]
   resizeable: bool
   debug: Debug | None
-  proj: Projector_Controller
   colors: dict[str, tuple[str,str]]
   #endregion
   
@@ -745,7 +744,8 @@ class GUI_Controller():
                 set_window_size: tuple[int,int] = (0, 0),
                 add_window_size: tuple[int,int] = (0, 0),
                 title: str = "GUI Controller",
-                resizeable: bool = True
+                resizeable: bool = True,
+                add_projector: bool = True,
                 ):
     # store user input variables
     self.grid_size = grid_size
@@ -766,7 +766,8 @@ class GUI_Controller():
     for col in range(self.grid_size[1]):
       self.root.grid_columnconfigure(col, weight=1)
     # create projector window
-    self.proj = Projector_Controller(self.root)
+    if(add_projector):
+      self.proj: Projector_Controller = Projector_Controller(self.root)
     # create dictionary of widgets
     self.__widgets__ = {}
 
