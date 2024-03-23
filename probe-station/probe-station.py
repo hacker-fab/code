@@ -8,8 +8,8 @@ from litho_gui_lib import *
 from litho_img_lib import *
 
 THUMBNAIL_SIZE: tuple[int,int] = (160,90)
-CHIN_SIZE: int = 0
-GUI: GUI_Controller = GUI_Controller(grid_size=(1,1),
+CHIN_SIZE: int = 100
+GUI: GUI_Controller = GUI_Controller(grid_size=(2,1),
                                      title = "Probe Station",
                                      add_window_size=(0,CHIN_SIZE),
                                      add_projector = False)
@@ -26,6 +26,10 @@ camera.grid(
   columnspan = GUI.grid_size[1],
   sticky='nesw')
 GUI.add_widget("camera", camera)
+#endregion
+
+#region: stage control
+
 #endregion
 
 #region: Calibrate

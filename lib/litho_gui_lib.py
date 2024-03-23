@@ -812,7 +812,6 @@ class GUI_Controller():
     self.root.mainloop()
 
 # TODO add theta?
-# TODO make floats?
 # TODO add changed() function
 # class to manage global stage coordinates. 
 # can specify list of functions to call when updating coords
@@ -927,7 +926,7 @@ class Stage_Controller():
           debug_str += "\n  any: "+func
       self.debug.info(debug_str)
 
-  # set coords from a list of set of floats
+  # set coords from a list of floats
   def set(self, x:float, y:float, z:float, update: bool = True):
     if(self.__locked__):
       if(self.debug != None):
@@ -957,7 +956,138 @@ class Stage_Controller():
       self.debug.info(debug_str)
     #endregion
   #endregion
- 
+
+# Controls a set of N stage controllers
+# allows naming of each, and toggling between them
+# also supports group moving of selected stages
+class Multi_Stage():
+  #region: fields
+  __controllers__: dict[str, Stage_Controller]
+  __names__: list[str]
+  __selected__: list[str]
+  verbosity: int
+  #endregion
+  
+  def __init__(self, count: int, names: list[str], debug: Debug | None = None, verbosity: int = 1):
+    self.__names__ = names
+    self.verbosity = verbosity
+    self.debug = debug
+    for name in names:
+      self.__controllers__[name] = Stage_Controller(debug = debug, verbosity=verbosity)
+    self.__selected__ = []
+  
+  # add an update function to all stages
+  # enable force to overwrite existing functions with same name
+  def batch_add_update_func(self, axis: Literal['x','y','z','any'], name: str, func: Callable, force: bool = False):
+    # check if function already exists to prevent overwriting
+    if(not force):
+      for stage_name in self.__names__:
+        if(name in self.__controllers__[stage_name].update_funcs[axis]):
+          if(self.debug != None):
+            self.debug.warn("attempted to overwrite existing function: "+stage_name+"."+axis+"."+name+"\n  use force=True to overwrite")
+          return
+  
+  # remove an update function from all stages if it exists
+  # enable strict to throw error if a stage doesn't have the function
+  def batch_remove_update_func(self, axis: Literal['x','y','z','any'], name: str, strict: bool = True):
+    # if strict, check that the function exists in all stages
+      if(strict):
+        for stage_name in self.__names__:
+          if(name not in self.__controllers__[stage_name].update_funcs[axis]):
+            if(self.debug != None):
+              self.debug.warn("Tried to remove non-existant function: "+stage_name+"."+axis+"."+name+"\n  use strict=False to ignore")
+            return
+      # remove function from all stages
+      for stage_name in self.__names__:
+        if(name in self.__controllers__[stage_name].update_funcs[axis]):
+          self.__controllers__[stage_name].update_funcs[axis].pop(name)
+    
+  # get a stage by name
+  def get(self, name: str) -> Stage_Controller | None:
+    if(name not in self.__names__):
+      if(self.debug != None):
+        self.debug.error("Tried to get non-existant stage "+name)
+      return None
+    return self.__controllers__[name]
+  
+  # toggle a stage between on and off
+  # optionally specify force_on or force_off to ensure a stage is on or off
+  def toggle(self, name: str | list[str], force_on: bool = False, force_off: bool = False):
+    # check existence
+    if(name not in self.__names__):
+      if(self.debug != None):
+        self.debug.error("Tried to select non-existant stage "+name)
+      return
+    # check for conflicting force flags
+    if(force_on and force_off):
+      if(self.debug != None):
+        self.debug.error("Tried to force both on and off")
+      return
+    # actually toggle
+    if(force_on and name not in self.__selected__):
+      self.__selected__.append(name)
+    elif(force_off and name in self.__selected__):
+      self.__selected__.remove(name)
+    elif(name in self.__selected__):
+      self.__selected__.remove(name)
+    elif(name not in self.__selected__):
+      self.__selected__.append(name)
+    else:
+      if(self.debug != None):
+        self.debug.error("Execution reached unexpected point in Multi_Stage.toggle()")
+    #success
+    if(self.debug != None and self.verbosity > 0):
+      self.debug.info("toggled "+name+" to "+str(name in self.__selected__)) 
+  
+  # rename a stage
+  def rename(self, old_name: str, new_name: str):
+    # check existence
+    if(old_name not in self.__names__):
+      if(self.debug != None):
+        self.debug.error("Tried to rename non-existant stage "+old_name)
+      return
+    # check name not taken
+    if(new_name in self.__names__):
+      if(self.debug != None):
+        self.debug.error("Tried to rename "+old_name+" to "+new_name+" but "+new_name+" already exists")
+      return
+    # actually rename
+    self.__controllers__[new_name] = self.__controllers__.pop(old_name)
+    self.__names__[self.__names__.index(old_name)] = new_name
+    if(old_name in self.__selected__):
+      self.__selected__[self.__selected__.index(old_name)] = new_name
+    #success
+    if(self.debug != None and self.verbosity > 0):
+      self.debug.info("renamed "+old_name+" to "+new_name)
+    
+  # set coords from a list of floats
+  def set(self, name: str, x:float, y:float, z:float, update: bool = True):
+    for name in self.__selected__:
+      self.__controllers__[name].set(x,y,z,update)
+  
+  # step a stage in a direction
+  def step(self, axis: Literal['-x','x','+x','-y','y','+y','-z','z','+z'], size: float = 0, update: bool = True):
+    for name in self.__selected__:
+      self.__controllers__[name].step(axis, size, update)
+  
+  # lock all stages, optionally only lock selected
+  def lock(self, only_selected: bool = False):
+    if(only_selected):
+      for name in self.__selected__:
+        self.__controllers__[name].lock()
+    else:
+      for name in self.__names__:
+        self.__controllers__[name].lock()
+        
+  # unlock all stages, optionally only unlock selected
+  def unlock(self, only_selected: bool = False):
+    if(only_selected):
+      for name in self.__selected__:
+        self.__controllers__[name].unlock()
+    else:
+      for name in self.__names__:
+        self.__controllers__[name].unlock()
+  
 # Class takes an image and slicing parameters and returns slices
 class Slicer():
   # pattern types
