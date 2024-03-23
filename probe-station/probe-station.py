@@ -4,8 +4,9 @@
 import sys
 from os.path import join, dirname, realpath
 sys.path.insert(0, join(dirname(dirname(realpath(__file__))), "lib"))
-from litho_gui_lib import *
-from litho_img_lib import *
+from gui_lib import *
+from img_lib import *
+from 
 
 THUMBNAIL_SIZE: tuple[int,int] = (160,90)
 CHIN_SIZE: int = 100

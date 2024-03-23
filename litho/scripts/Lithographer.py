@@ -9,9 +9,10 @@ import serial
 #import sys and use path insert to add lib files
 import sys
 from os.path import join, dirname, realpath
-sys.path.insert(0, join(dirname(dirname(realpath(__file__))), "lib"))
-from litho_gui_lib import *
-from litho_img_lib import *
+sys.path.insert(0, join(dirname(dirname(dirname(realpath(__file__)))), "lib"))
+from gui_lib import *
+from img_lib import *
+from backend_lib import *
 
 from config import camera as camera_hw
 import cv2
