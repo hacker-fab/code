@@ -3,8 +3,7 @@
 #import sys and use path insert to add lib files
 import sys
 from os.path import join, dirname, realpath
-sys.path.insert(0, join(join(dirname(dirname(realpath(__file__))), "litho"), "scripts"))
-
+sys.path.insert(0, join(dirname(dirname(realpath(__file__))), "lib"))
 from litho_gui_lib import *
 from litho_img_lib import *
 
