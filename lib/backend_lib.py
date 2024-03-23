@@ -64,8 +64,8 @@ class Smart_Image():
   def mode(self) -> str:
     return self.image.mode
   
-# TODO add theta?
-# TODO add changed() function
+# TODO add calibration function
+# TODO add option to prevent leaving FoV
 # class to manage global stage coordinates. 
 # can specify list of functions to call when updating coords
 # can add debug widget to print info at various verbosity levels:
@@ -76,6 +76,7 @@ class Stage_Controller():
   update_funcs: dict[Literal['x','y','z','any'], dict[str, Callable]]
   debug: Debug | None
   step_size: tuple[float,float,float]
+  __changed_coords__: tuple[float,float,float]
   __coords__: tuple[float,float,float]
   __verbosity__: int
   __locked__: bool = False
@@ -87,6 +88,7 @@ class Stage_Controller():
                verbosity: int = 1):
     self.update_funcs = {'x':{}, 'y':{}, 'z':{}, 'any':{}}
     self.__coords__ = starting_coords
+    self.__changed_coords__ = starting_coords
     self.step_size = step_sizes
     self.debug = debug
     self.__verbosity__ = verbosity
@@ -129,12 +131,35 @@ class Stage_Controller():
     return self.__coords__
   #endregion
   
+  # calibration function to equate camera view to stage step increments
+  # @param calibrate_backlash: calibrate for backlash by moving in opposite direction. +1 point
+  # @param independent_axes: calibrate each axis independently. x2 points
+  # @param single_axis: calibrate only a single axis. 
+  def calibrate(self, pixel_query: Callable[[], tuple[int,int]],
+                calibrate_backlash: bool = False,
+                independent_axes: bool = False,
+                single_axis: Literal['x','y','xy'] = 'xy',
+                return_result: bool = False):
+    pass
+  
+  # lock stage to prevent movement
   def lock(self):
     self.__locked__ = True
     
+  # unlock stage
   def unlock(self):
     self.__locked__ = False
   
+  # return true if stage has changed since last call to this function
+  # default behavior is to reset changed comparison on every call
+  # set query_only to retain previous reference
+  def changed(self, query_only: bool = False) -> bool:
+    result: bool = self.__changed_coords__ != self.__coords__
+    if(not query_only):
+      self.__changed_coords__ = self.__coords__
+    return result
+  
+  # step stage in a direction by step_size
   def step(self, axis: Literal['-x','x','+x','-y','y','+y','-z','z','+z'], size: float = 0, update: bool = True):
     if(self.__locked__):
       if(self.debug != None):
@@ -208,7 +233,6 @@ class Stage_Controller():
           debug_str += "\n  any: "+func
       self.debug.info(debug_str)
     #endregion
-  #endregion
 
 # Controls a set of N stage controllers
 # allows naming of each, and toggling between them
@@ -463,3 +487,4 @@ class Slicer():
       (self.__grid_size__, self.__sliced_images__) = slice( self.__full_image__,
                                                             self.__horizontal_slices__,
                                                             self.__vertical_slices__)
+

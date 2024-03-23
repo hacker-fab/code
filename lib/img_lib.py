@@ -377,6 +377,19 @@ def add(a:tuple[int|float,...]|int|float,
   else:
     return a+b
 
+# sub tuples, return new tuple
+def sub(a:tuple[int|float,...]|int|float,
+        b:tuple[int|float,...]|int|float
+        ) -> tuple[int|float,...]|int|float:
+  if(type(a) == tuple and type(b) == tuple):
+    return tuple([x-y for x,y in zip(a,b)])
+  elif(type(a) == tuple):
+    return tuple([x-b for x in a])
+  elif(type(b) == tuple):
+    return tuple([x-a for x in b])
+  else:
+    return a-b
+
 # multiply tuples element-wise, return new tuple
 def mult(a:tuple[int|float,...]|int|float, 
          b:tuple[int|float,...]|int|float
@@ -394,15 +407,17 @@ def mult(a:tuple[int|float,...]|int|float,
 def round_tuple(t: tuple[int|float,...]) -> tuple[int,...]:
   return tuple([round(x) for x in t])
 
-def div(a:tuple[int,...], b:tuple[int,...]) -> tuple[int,...]:
-  if(type(a) == int and type(b) == int):
-    return a/b
-  elif(type(a) == int):
-    return tuple([x/a for x in b])
-  elif(type(b) == int):
+def div(a:tuple[int|float,...]|int|float,
+        b:tuple[int|float,...]|int|float
+        ) -> tuple[int|float,...]|int|float:
+  if(type(a) == tuple and type(b) == tuple):
+    return tuple([x/y for x,y in zip(a,b)])
+  elif(type(a) == tuple):
     return tuple([x/b for x in a])
+  elif(type(b) == tuple):
+    return tuple([x/a for x in b])
   else:
-    return tuple([round(x/y) for x,y in zip(a,b)])
+    return a/b
 
 # automated test suite
 def __run_tests():

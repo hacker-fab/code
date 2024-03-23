@@ -1,6 +1,6 @@
 #region: imports
 from __future__ import annotations
-from tkinter import Tk, Button, Toplevel, Entry, IntVar, DoubleVar, Variable, filedialog, Label, Widget
+from tkinter import Tk, Button, Toplevel, Entry, IntVar, DoubleVar, Variable, filedialog, Label, Widget, BooleanVar
 from tkinter.ttk import Progressbar
 from PIL import ImageTk, Image
 from time import time
@@ -584,8 +584,8 @@ class Projector_Controller():
   # just a black image to clear with
   __clearImage__: ImageTk.PhotoImage
   ### optional user args ###
-  debug: Debug | None
-  progressbar: Progressbar | None
+  debug: Debug | None = None
+  progressbar: Progressbar | None = None
   
   def __init__( self,
                 root: Tk,
@@ -669,7 +669,7 @@ class TextPopup():
   ### User Fields ###
   button_text: str
   popup_text: str
-  debug: Debug | None
+  debug: Debug | None = None
   
   def __init__(self, root: Tk,
                button_text: str = "",
@@ -743,7 +743,8 @@ class GUI_Controller():
   title: str
   window_size: tuple[int,int]
   resizeable: bool
-  debug: Debug | None
+  debug: Debug | None = None
+  proj: Projector_Controller | None = None
   colors: dict[str, tuple[str,str]]
   #endregion
   
@@ -779,12 +780,12 @@ class GUI_Controller():
     # create dictionary of widgets
     self.__widgets__ = {}
 
-  #TODO test if typing like this actually works
   def add_widget(self, name: str, widget: gui_widgets):
     # if a debug widget is added, save it as the debug field
     if(type(widget) == Debug):
       self.debug = widget
-      self.proj.debug = widget
+      if(self.proj != None):
+        self.proj.debug = widget
     else:
       self.__widgets__[name] = widget
     self.update()
@@ -814,6 +815,45 @@ class GUI_Controller():
   def mainloop(self):
     self.root.mainloop()
 
+  # get location within a widget as percentage from top left
+  # if no widget specified, or widget not found, return location within the root window
+  # if img_size is specified, return location within image
+  def get_coords(self, widget: str = "", img_size: tuple[int,int] = (0,0)):
+    # get widget
+    this_widget = self.get_widget(widget)
+    if(this_widget == None):
+      if(self.debug != None):
+        self.debug.warn("Using root window for get_coords()")
+      this_widget = self.root
+    # get location within *WINDOW*
+    button_pressed = BooleanVar()
+    coords: tuple[int,int] = (0,0)
+    def __get_coords__(event) -> tuple:
+      nonlocal coords
+      coords = (event.x, event.y)
+      button_pressed.set(True)
+      self.root.unbind("<Button 1>")
+    if(self.debug != None):
+      self.debug.info("Click within "+widget+" to get location")
+    self.root.bind("<Button 1>",__get_coords__)
+    self.root.wait_variable(button_pressed)
+    # offset by widget location
+    widget_coords = (this_widget.winfo_x(), this_widget.winfo_y())
+    result = sub(coords, widget_coords)
+    if((result[0] < 0 or result[1] < 0) and self.debug != None):
+        self.debug.warn("Clicked outside of "+widget)
+    # if image size is specified, return location within image
+    widget_size = (this_widget.winfo_width(), this_widget.winfo_height())
+    if(img_size != (0,0)):
+      img_offset = div(sub(widget_size, img_size),2)
+      if((img_offset[0] < 0 or img_offset[1] < 0) and self.debug != None):
+          self.debug.warn("Clicked outside of image in "+widget)
+      result = sub(result, img_offset)
+      result = div(result, img_size)
+    else:
+      result = div(result, widget_size)
+    return result
+  
 # swaps around groups of widgets
 # Requires a GUI controller
 # hides widgets with grid_remove()
@@ -828,8 +868,8 @@ class Smart_Area():
   # current index of the list
   __index__: int = 0
   # debug widget
-  debug: Debug | None
-  name: str | None
+  debug: Debug | None = None
+  name: str | None = None
   #endregion
   
   def __init__( self,
