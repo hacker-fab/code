@@ -364,6 +364,8 @@ def slice(image: Image.Image,
       output.append(cropped)
   return (grid, tuple(output))
 
+#region: tuple functions
+
 # add tuples, return new tuple
 def add(a:tuple[int|float,...]|int|float,
         b:tuple[int|float,...]|int|float
@@ -402,10 +404,6 @@ def mult(a:tuple[int|float,...]|int|float,
     return tuple([x*a for x in b])
   else:
     return a*b
-  
-# convert float | int tuple to int tuple
-def round_tuple(t: tuple[int|float,...]) -> tuple[int,...]:
-  return tuple([round(x) for x in t])
 
 # divide tuples element-wise, return new tuple
 def div(a:tuple[int|float,...]|int|float,
@@ -419,6 +417,20 @@ def div(a:tuple[int|float,...]|int|float,
     return tuple([x/a for x in b])
   else:
     return a/b
+
+# convert float | int tuple to int tuple
+def round_tuple(t: tuple[int|float,...]) -> tuple[int,...]:
+  return tuple([round(x) for x in t])
+
+# apply abs to all elements of tuple
+def abs_tuple(t: tuple[int|float,...]) -> tuple[int|float,...]:
+  return tuple([abs(x) for x in t])
+
+# negate all elements of tuple (*-1)
+def neg_tuple(t: tuple[int|float,...]) -> tuple[int|float,...]:
+  return tuple([-x for x in t])
+
+#endregion
 
 # automated test suite
 def __run_tests():
