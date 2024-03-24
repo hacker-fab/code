@@ -66,6 +66,7 @@ class Smart_Image():
   
 # TODO add calibration function
 # TODO add option to prevent leaving FoV
+# TODO add move to function
 # class to manage global stage coordinates. 
 # can specify list of functions to call when updating coords
 # can add debug widget to print info at various verbosity levels:
@@ -80,6 +81,15 @@ class Stage_Controller():
   __coords__: tuple[float,float,float]
   __verbosity__: int
   __locked__: bool = False
+  # has the stage been calibrated
+  __calibrated__: bool = False
+  # conversion ratio for camera view to stage movement
+  __conversion_ratio__: tuple[float,float,float] = (1,1,1)
+  # backlash calibration
+  # [[X back, X forward], [Y back, Y forward]]
+  __backlash__: tuple[tuple[float,float], tuple[float,float]] = ((0,0),(0,0))
+  # last direction moved for backlash calibration
+  __last_dir__: tuple[Literal['+','-'],Literal['+','-']] = ('+','+')
   
   def __init__(self,
                starting_coords: tuple[float,float,float] = (0,0,0),
@@ -132,15 +142,27 @@ class Stage_Controller():
   #endregion
   
   # calibration function to equate camera view to stage step increments
-  # @param calibrate_backlash: calibrate for backlash by moving in opposite direction. +1 point
-  # @param independent_axes: calibrate each axis independently. x2 points
-  # @param single_axis: calibrate only a single axis. 
-  def calibrate(self, pixel_query: Callable[[], tuple[int,int]],
+  # @param location_query: function that returns a location as percentage of fov from top left
+  #         recommended to use the gui_lib.GUI_Controller.get_coords() function
+  # @param step_size: amount to move stage by for calibration
+  # @param calibrate_backlash: calibrate for backlash by moving in opposite direction
+  # @param bidirectional_backlash: calibrate backlash in both directions
+  # @param independent_axes: calibrate each axis independently
+  def calibrate(self, location_query: Callable[[], tuple[float,float]],
+                step_size: tuple[float,float] = (1,1),
                 calibrate_backlash: bool = False,
-                independent_axes: bool = False,
-                single_axis: Literal['x','y','xy'] = 'xy',
-                return_result: bool = False):
+                bidirectional_backlash: bool = False,
+                independent_axes: bool = False):
+    #IMPORTANT: motors use cartesian coordinates, so y is inverted
     pass
+  
+  # convert a stage value movement to calibrator motor movement
+  def convert(self, delta: tuple[float,float,float]) -> tuple[float,float,float]:
+    if(not self.__calibrated__):
+      if(self.debug != None):
+        self.debug.warn("Must calibrate before using conversion function")
+      return add(self.__coords__, delta)
+    return mult(delta, self.__conversion_ratio__)
   
   # lock stage to prevent movement
   def lock(self):

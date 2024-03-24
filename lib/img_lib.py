@@ -407,6 +407,7 @@ def mult(a:tuple[int|float,...]|int|float,
 def round_tuple(t: tuple[int|float,...]) -> tuple[int,...]:
   return tuple([round(x) for x in t])
 
+# divide tuples element-wise, return new tuple
 def div(a:tuple[int|float,...]|int|float,
         b:tuple[int|float,...]|int|float
         ) -> tuple[int|float,...]|int|float:
