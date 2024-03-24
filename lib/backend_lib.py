@@ -82,17 +82,22 @@ class Stage_Controller():
   __coords__: tuple[float,float,float]
   __verbosity__: int
   __locked__: bool = False
+  # function that returns a location as percentage of fov from top left
+  # recommended to use the gui_lib.GUI_Controller.get_coords() function
+  __location_query__: Callable[[], tuple[float,float]] | None = None
   
   def __init__(self,
                starting_coords: tuple[float,float,float] = (0,0,0),
                step_sizes: tuple[float,float,float] = (1,1,1),
                debug: Debug | None = None,
+               location_query: Callable[[], tuple[float,float]] | None = None,
                verbosity: int = 1):
     self.update_funcs = {'x':{}, 'y':{}, 'z':{}, 'any':{}}
     self.__coords__ = starting_coords
     self.__changed_coords__ = starting_coords
     self.step_size = step_sizes
     self.debug = debug
+    self.__location_query__ = location_query
     self.__verbosity__ = verbosity
   
   def __str2key__(self, axis: str) -> Literal['x','y','z','any'] | None:
@@ -133,34 +138,28 @@ class Stage_Controller():
     return self.__coords__
   #endregion
   
-  # TODO implement independent axis calibration
   # calibration function to equate camera view to stage step increments
   # region: params
-  # @param location_query: function that returns a location as percentage of fov from top left
-  #          recommended to use the gui_lib.GUI_Controller.get_coords() function
   # @param step_size: amount to move stage by for calibration
-  # @param move_stage: function that physically moves stage
   # @param calibrate_backlash:
   #          'None': no backlash calibration
   #          'symmetric': assume backlash is the same in both directions
   #          'bidirectional': calibrate backlash in both directions
-  # @param independent_axes: calibrate each axis independently
   # @param return_to_start: return to starting position after calibration
   #endregion
   #region: fields
-  # conversion ratio for camera view to stage movement
-  __conversion_ratio__: tuple[float,float,float] | None = None
-  # backlash calibration [[X back, X forward], [Y back, Y forward]]
+  # conversion ratio from camera fov percentage to stage steps
+  __conversion_ratio__: tuple[float,float] | None = None
+  # backlash calibration [[X back, X forward], [Y back, Y forward]] in stage steps
   __backlash__: tuple[tuple[float,float], tuple[float,float]] | None = None
+  # location of point used to calibrate
+  __calibrate_point__: tuple[float,float] | None = None
+  # last directions moved in for backlash compensation
+  __last_dir__: dirs_t = ('+','+')
   #endregion
-  def calibrate(self, location_query: Callable[[], tuple[float,float]],
-                step_size: tuple[float,float],
-                move_stage: Callable[[tuple[float,float,float]], None],
+  def calibrate(self, step_size: tuple[float,float],
                 calibrate_backlash: Literal['None','symmetric','bidirectional'] = 'None',
-                independent_axes: bool = False,
                 return_to_start: bool = True):
-    #IMPORTANT: motors use cartesian coordinates, so y is inverted
-    
     # region: general structure is as follows:
     # 0. Check independent axis flag
     #    if False, do the following process once with both axis simultaneously
@@ -184,35 +183,44 @@ class Stage_Controller():
     #    do the math using the previous move amount as reference
     #    if not, just assign the previous backlash value to the other direction
     # 5. return to starting position 
+    # 6. ask user to click on where stage finally is
     # 
     # The required number of clicks is as follows:
-    # total = 2 if independent_axes * (3 + 1 if calibrate_backlash + 1 if bidirectional_backlash)
-    # shortest 3, usually 4, longest 10
+    # total = 3 + 1 if calibrate_backlash + 1 if bidirectional_backlash + 1 if return_to_start
     # endregion
     
     def convert_to_dir(dir: tuple[int,int,int]) -> self.dirs_t:
       return ('+' if dir[0]>0 else '-','+' if dir[1]>0 else '-')
     
+    def step(dir: tuple[int,int]) -> None:
+      for i in range(2):
+        match dir[i]:
+          case 1:
+            self.step(axis=('x' if i==0 else 'y'), size=step_size[i])
+          case -1:
+            self.step(axis=('-x' if i==0 else '-y'), size=step_size[i])
+    
     # 1. Eliminate backlash biasing by moving
-    step_size: tuple[float,float,float] = abs_tuple(*step_size, 0)
+    step_size: tuple[float,float] = abs_tuple(step_size)
     # get starting location from camera
-    starting_location: tuple[float,float] = location_query()
+    starting_location: tuple[float,float] = self.__location_query__()
     # see which way is towards center of view
     main_dir: tuple[int,int,int] = (1 if starting_location[0] >= 0.5 else -1,
                                 1 if starting_location[1] >= 0.5 else -1,
                                 0)
     inv_dir: tuple[int,int,int] = neg_tuple(main_dir)
     # move stage in that direction by step_size
-    move_stage(mult(main_dir, step_size))
+    step(main_dir)
     
     # 2. get conversion ratio
     # get new location from camera as starting point of calibration
-    starting_location = location_query()
+    starting_location = self.__location_query__()
     # move stage by step_size in same direction as before
-    move_stage(mult(main_dir, step_size))
+    step(main_dir)
     self.__last_dir__ = convert_to_dir(main_dir)
     # get new location from camera
-    new_location: tuple[float,float] = location_query()
+    new_location: tuple[float,float] = self.__location_query__()
+    self.__calibrate_point__ = new_location
     # do math to get conversion ratio
     distance: tuple[float,float] = sub(new_location, starting_location)
     self.__conversion_ratio__ = abs_tuple(div(distance, step_size))
@@ -221,13 +229,14 @@ class Stage_Controller():
     if(calibrate_backlash != 'None'):
       starting_location = new_location
       # if backlash is enabled, move backwards
-      move_stage(mult(step_size, inv_dir))
+      step(inv_dir)
       self.__last_dir__ = convert_to_dir(inv_dir)
       # get new location from camera
-      new_location = location_query()
+      new_location = self.__location_query__()
+      self.__calibrate_point__ = new_location
       # do the math using the previous move amount as reference
-      # backlash = | (-distance - (new_location - starting_location)) / step_size |
-      backlash: tuple[float,float] = abs_tuple(div(sub(neg_tuple(distance), sub(new_location, starting_location)), step_size))
+      # backlash = | (-distance - (new_location - starting_location)) * conversion_ratio |
+      backlash: tuple[float,float] = abs_tuple(mult(sub(neg_tuple(distance), sub(new_location, starting_location)), self.__conversion_ratio__))
       self.__backlash__ = ((backlash[0],backlash[0]),(backlash[1],backlash[1]))
     
     # 4. get backlash in other direction
@@ -235,13 +244,13 @@ class Stage_Controller():
       starting_location = new_location
       backlash_list: list[list[float]] = [[backlash[0],backlash[0]],[backlash[1],backlash[1]]]
       # if bidirectional backlash is enabled, move forward
-      move_stage(mult(step_size, main_dir))
+      step(main_dir)
       self.__last_dir__ = convert_to_dir(main_dir)
       # get new location from camera
-      new_location = location_query()
+      new_location = self.__location_query__()
+      self.__calibrate_point__ = new_location
       # do the math using the previous move amount as reference
-      # backlash = | (distance - (new_location - starting_location)) / step_size |
-      backlash: tuple[float,float] = abs_tuple(div(sub(distance, sub(new_location, starting_location)), step_size))
+      backlash: tuple[float,float] = abs_tuple(mult(sub(distance, sub(new_location, starting_location)), self.__conversion_ratio__))
       # apply the backlash to the other direction only
       for i in range(2):
         match main_dir[i]:
@@ -253,55 +262,37 @@ class Stage_Controller():
       
     # 5. return to starting position
     if(return_to_start):
-      if(calibrate_backlash == 'bidirectional'):
-        move_stage(mult(step_size, inv_dir))
-      else:
-        move_stage(mult(2, mult(step_size, inv_dir)))
+      if(calibrate_backlash != 'bidirectional'):
+        step(inv_dir)
+      step(inv_dir)
       self.__last_dir__ = convert_to_dir(inv_dir)
-    
+      self.__calibrate_point__ = new_location
   
-  # convert a stage value movement to calibrated motor movement
-  #   it is *HIGHLY* recommended to only use this function without specifying delta or last_dir
-  #   if not careful, can result in motor and stage getting out of sync
-  # region: params
-  # @param delta: movement in stage coordinates to be converted to motor coordinates
-  #         if unspecified, uses delta from last time this function was called
-  # @param last_dir: direction of last movement to be used for backlash compensation
-  #         if unspecified, uses last_dir from last time this function was called
-  #endregion
-  # region: fields
-  # If delta is unspecified, uses deltra from last time this function was called
-  __last_coords__: tuple[float,float,float]
-  # If last_dir is unspecified, uses last_dir from last time this function was called [x,y]
-  __last_dir__: dirs_t = ('+','+')
-  # endregion
-  def convert(self, delta: tuple[float,float,float] | None = None,
-              last_dir: dirs_t | None = None
-              ) -> tuple[float,float,float] | None:
+  # move stage to a location in camera fov, must calibrate stage before use
+  # @param location: move to location without querying user
+  def goto(self, location: tuple[float,float] | None = None):
     # check if calibrated
     if(self.__conversion_ratio__ == None):
       if(self.debug != None):
-        self.debug.warn("Must calibrate before using conversion function")
-      return None
-    # get and convert delta
-    if(delta == None):
-      delta = sub(self.__coords__, self.__last_coords__)
-      self.__last_coords__ = self.__coords__
-    result: tuple[float,float,float] = mult(delta, self.__conversion_ratio__)
-    # get and apply backlash
+        self.debug.error("Must calibrate before using goto function")
+      return
+    # get location from camera
+    if(location == None):
+      location: tuple[float,float] = self.__location_query__()
+    # get delta
+    delta: tuple[float,float] = mult(self.__conversion_ratio__, sub(location, self.__calibrate_point__))
+    self.__calibrate_point__ = location
+    # apply backlash
     if(self.__backlash__ != None):
       new_dir: self.dirs_t = ('+' if delta[0]>0 else '-','+' if delta[1]>0 else '-')
-      if(last_dir == None):
-        last_dir = self.__last_dir__
-        self.__last_dir__ = new_dir
       for i in range(2):
-        if(last_dir[i] != new_dir[i]):
+        if(self.__last_dir__[i] != new_dir[i]):
           if(new_dir[i] == '+'):
-            result[i] += self.__backlash__[i][1]
+            delta[i] -= self.__backlash__[i][1]
           else:
-            result[i] += self.__backlash__[i][0]
-    return result
-    
+            delta[i] += self.__backlash__[i][0]
+    # move stage
+    self.incr((*delta,0))
   
   # lock stage to prevent movement
   def lock(self):
@@ -321,7 +312,7 @@ class Stage_Controller():
       self.__changed_coords__ = self.__coords__
     return result
   
-  # step stage in a direction by step_size
+  # step stage in a direction by step_size, mostly for convenience
   def step(self, axis: Literal['-x','x','+x','-y','y','+y','-z','z','+z'], size: float = 0, update: bool = True):
     if(self.__locked__):
       if(self.debug != None):
@@ -395,6 +386,10 @@ class Stage_Controller():
           debug_str += "\n  any: "+func
       self.debug.info(debug_str)
     #endregion
+
+  # call set() with a delta, for convenience
+  def incr(self, x: float = 0, y: float = 0, z: float = 0, update: bool = True):
+    return set(add(self.__coords__, (x,y,z)), update=update)
 
 # Controls a set of N stage controllers
 # allows naming of each, and toggling between them

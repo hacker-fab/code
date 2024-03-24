@@ -1606,17 +1606,14 @@ def update_func_x():
   #dx = stage.step_size[0]
   #stage_socket.send(msgpack.packb([time.time_ns(), [dx]]))
 
-previous_xyz: tuple[float,float,float] = stage.xyz()
-def move_stage(delta: tuple[float,float,float] | None = None):
-  if(delta is None):
-    global previous_xyz
-    current = stage.xyz()
-    dx = scale_factor*(current[0]-previous_xyz[0])
-    dy = scale_factor*(current[1]-previous_xyz[1])
-    dz = scale_factor*(current[2]-previous_xyz[2])
-    previous_xyz = stage.xyz()
-  else:
-    dx, dy, dz = delta
+previous_xyz: tuple[int,int,int] = stage.xyz()
+def move_stage():
+  global previous_xyz
+  current = stage.xyz()
+  dx = scale_factor*(current[0]-previous_xyz[0])
+  dy = scale_factor*(current[1]-previous_xyz[1])
+  dz = scale_factor*(current[2]-previous_xyz[2])
+  previous_xyz = stage.xyz()
   print(f"test {dx} {dy} {dz}", flush=True)
   # stage_low_level.move_by({'x':dx,'y':dy,'z':dz})
 
