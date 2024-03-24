@@ -3,16 +3,23 @@ from tkinter.ttk import Progressbar
 from collections import namedtuple
 from PIL import  Image
 from time import sleep
-from litho_img_lib import *
-from litho_gui_lib import *
 from stage_control.grbl_stage import GrblStage
 import serial
+
+#import sys and use path insert to add lib files
+import sys
+from os.path import join, dirname, realpath
+sys.path.insert(0, join(dirname(dirname(dirname(realpath(__file__)))), "lib"))
+from gui_lib import *
+from img_lib import *
+from backend_lib import *
 
 from config import camera as camera_hw
 import cv2
 import threading
 import time
 
+RUN_WITHOUT_CAMERA: bool = True
 stage_file = "COM6" # change as needed; later will have automatic COM port identification
 baud_rate = 115200
 scale_factor = 50/3890 # For us, 50 units went about 3890 microns. PLEASE CHANGE THIS FOR YOUR OWN SETUP.
@@ -55,7 +62,7 @@ VERSION: str = "1.6.1"
 
 #region: setup 
 THUMBNAIL_SIZE: tuple[int,int] = (160,90)
-CHIN_SIZE: int = 0
+CHIN_SIZE: int = 200
 GUI: GUI_Controller = GUI_Controller(grid_size = (14,11),
                                      title = "Lithographer "+VERSION,
                                      add_window_size=(0,CHIN_SIZE))
@@ -1587,9 +1594,10 @@ right_area.jump(0)
 
 #endregion
 #region: Stage Control Setup
-serial_port = serial.Serial(stage_file, baud_rate)
-print(f"Using serial port {serial_port.name}")
-stage_low_level = GrblStage(serial_port, bounds=((-12000,12000),(-12000,12000),(-12000,12000))) 
+if(not RUN_WITHOUT_CAMERA):
+  serial_port = serial.Serial(stage_file, baud_rate)
+  print(f"Using serial port {serial_port.name}")
+  stage_low_level = GrblStage(serial_port, bounds=((-12000,12000),(-12000,12000),(-12000,12000))) 
 
 
 def update_func_x():
@@ -1607,7 +1615,7 @@ def move_stage():
   dz = scale_factor*(current[2]-previous_xyz[2])
   previous_xyz = stage.xyz()
   print(f"test {dx} {dy} {dz}", flush=True)
-  stage_low_level.move_by({'x':dx,'y':dy,'z':dz})
+  # stage_low_level.move_by({'x':dx,'y':dy,'z':dz})
 
 stage.update_funcs['any'] = {'any': move_stage}
 #endregion: Stage Control Setup
@@ -1795,7 +1803,8 @@ def benchmark():
 # cleanup function for graceful program exit
 def cleanup():
   print("Patterning GUI closed.")
-  serial_port.close()
+  if(not RUN_WITHOUT_CAMERA):
+    serial_port.close()
   GUI.root.destroy()
 
 
@@ -1803,7 +1812,8 @@ def cleanup():
 GUI.root.protocol("WM_DELETE_WINDOW", cleanup)
 GUI.debug.info("Debug info will appear here")
 
-setup_camera_from_py()
+if(not RUN_WITHOUT_CAMERA):
+  setup_camera_from_py()
 
 GUI.mainloop()
 

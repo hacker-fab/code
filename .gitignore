@@ -13,3 +13,6 @@
 
 # log files
 *.log
+
+# lib file paths
+*.pyc
