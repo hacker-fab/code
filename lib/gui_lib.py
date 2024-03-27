@@ -818,7 +818,10 @@ class GUI_Controller():
   # get location within a widget as percentage from top left
   # if no widget specified, or widget not found, return location within the root window
   # if img_size is specified, return location within image
-  def get_coords(self, widget: str = "", img_size: tuple[int,int] = (0,0)):
+  # if in_pixels, return pixel location instead of percentage
+  def get_coords( self, widget: str = "",
+                  img_size: tuple[int,int] = (0,0),
+                  in_pixels: bool = False) -> tuple[float,float] | tuple[int,int]:
     # get widget
     this_widget = self.get_widget(widget)
     if(this_widget == None):
@@ -838,21 +841,30 @@ class GUI_Controller():
     self.root.bind("<Button 1>",__get_coords__)
     self.root.wait_variable(button_pressed)
     # offset by widget location
-    widget_coords = (this_widget.winfo_x(), this_widget.winfo_y())
-    result = sub(coords, widget_coords)
+    result = coords
+    # result = sub(coords, (this_widget.winfo_x(), this_widget.winfo_y()))
+    print("widget coords:",this_widget.winfo_x(), this_widget.winfo_y())
+    print("click coords:",coords[0], coords[1])
     if((result[0] < 0 or result[1] < 0) and self.debug != None):
         self.debug.warn("Clicked outside of "+widget)
     # if image size is specified, return location within image
     widget_size = (this_widget.winfo_width(), this_widget.winfo_height())
     if(img_size != (0,0)):
       img_offset = div(sub(widget_size, img_size),2)
-      if((img_offset[0] < 0 or img_offset[1] < 0) and self.debug != None):
+      if((img_offset[0] < 0 or img_offset[1] < 0 or
+          img_offset[0] > 1 or img_offset[1] > 1) and 
+          self.debug != None):
           self.debug.warn("Clicked outside of image in "+widget)
       result = sub(result, img_offset)
-      result = div(result, img_size)
+      if(in_pixels):
+        return result
+      else:
+        return div(result, img_size)
     else:
-      result = div(result, widget_size)
-    return result
+      if(in_pixels):
+        return result
+      else:
+        return div(result, widget_size)
   
 # swaps around groups of widgets
 # Requires a GUI controller
